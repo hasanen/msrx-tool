@@ -76,11 +76,12 @@ async fn main() {
 
     // wait for data
 
-    loop {
+    for _ in 0..5 {
         let mut databuf: [u8; 64] = [0; 64];
         let size = device
-            .read_interrupt(0x81, &mut databuf, Duration::from_secs(100))
+            .read_interrupt(0x81, &mut databuf, Duration::from_secs(1))
             .unwrap();
+        dbg!(size);
         if size > 0 {
             println!("Received {} bytes: {:?}", size, &databuf[..size]);
             // Process the received data as needed
