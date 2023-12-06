@@ -210,8 +210,7 @@ async fn main() {
 
     println!("Enable reading");
     send_control(&mut device, &Command::SetReadModeOn.packets());
-    let data = read_data(&mut device);
-    println!("data: {}", data);
+    read_tracks(&mut device);
     println!("Disable reading");
     send_control(&mut device, &Command::SetReadModeOff.packets());
     read_success(&mut device);
@@ -276,6 +275,43 @@ fn read_voltage(device: &mut DeviceHandle<Context>) -> f64 {
             / 100.0;
     return rounded_voltage;
 }
+fn read_tracks(device: &mut DeviceHandle<Context>) -> String {
+    let raw_track_data = read_interrupt(device);
+    println!("raw_track_data: {:?}", raw_track_data);
+    println!("raw_track_data.len: {:?}", raw_track_data.len());
+
+    if raw_track_data[1] != 0x1b || raw_track_data[2] != 0x73 {
+        println!("Invalid data");
+        return "".to_string();
+    }
+    // println!("hex_data[0]: {:?}", hex_data[0]);
+
+    let len = raw_track_data[0] as usize;
+    println!("len: {:?}", len);
+    let mut readIndex = 3;
+    for i in 1..=3 {
+        println!("TRACK: {:?}", i);
+        if raw_track_data[readIndex] != 0x1b || raw_track_data[readIndex + 1] != i {
+            println!("Invalid data");
+            println!("raw_track_data[readIndex]: {:?}", raw_track_data[readIndex]);
+            println!(
+                "raw_track_data[readIndex + 1]: {:?}",
+                raw_track_data[readIndex + 1]
+            );
+            println!("i: {:?}", i);
+            return "".to_string();
+        }
+        readIndex += 2;
+        let track_len = raw_track_data[readIndex] as usize;
+        println!("track_len: {:?}", track_len);
+        readIndex += 1;
+        let track_data = &raw_track_data[readIndex..readIndex + track_len];
+        println!("track_data: {:?}", track_data);
+        readIndex += track_len;
+    }
+    //
+    return "".to_string();
+}
 fn read_data(device: &mut DeviceHandle<Context>) -> String {
     let hex_data = read_interrupt(device);
 
@@ -308,27 +344,16 @@ fn read_success(device: &mut DeviceHandle<Context>) -> bool {
     return hex_data[1] == 0x1b && hex_data[2] == 0x30;
 }
 
-fn read_interrupt(device: &mut DeviceHandle<Context>) -> Vec<u8> {
+fn read_interrupt(device: &mut DeviceHandle<Context>) -> [u8; 64] {
     let mut inbuf: [u8; 64] = [0; 64];
-    device.read_interrupt(0x81, &mut inbuf, Duration::from_secs(10));
-
-    println!("inbuf: {:?}", inbuf);
-    let len = inbuf[0] as usize;
-    let header_length = 0x80;
-    let buffer_length = 0x3f;
-    println!("len: {:?}", len);
-    println!("header_length: {:?}", header_length);
-    println!("buffer_length: {:?}", buffer_length);
-    let payload_length = len - header_length - buffer_length;
-
-    println!("before: {:?}", inbuf);
-    println!("after: {:?}", inbuf[0..payload_length].to_vec());
-    println!("payload_length: {:?}", payload_length);
-    if payload_length == 0 {
-        return vec![];
-    } else {
-        return inbuf[0..payload_length].to_vec();
-    }
+    let result = device.read_interrupt(0x81, &mut inbuf, Duration::from_secs(10));
+    println!("result: {:?}", result);
+    return inbuf;
+}
+fn read_bulk(device: &mut DeviceHandle<Context>) -> [u8; 200] {
+    let mut inbuf: [u8; 200] = [0; 200];
+    device.read_bulk(0x81, &mut inbuf, Duration::from_secs(10));
+    return inbuf;
 }
 
 fn send_control(device: &mut DeviceHandle<Context>, packets: &Vec<u8>) {
