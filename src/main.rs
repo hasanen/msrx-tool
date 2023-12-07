@@ -252,7 +252,7 @@ async fn main() {
 
     println!("Enable reading");
     send_control(&mut device, &Command::SetReadModeOn.packets());
-    read_tracks(&mut device);
+    let _ = device.read_tracks();
     println!("Disable reading");
     send_control(&mut device, &Command::SetReadModeOff.packets());
     let _ = read_success(&mut device);
@@ -274,7 +274,18 @@ async fn main() {
         device.attach_kernel_driver(iface).unwrap();
     }
 }
-
+trait ReadTracks {
+    fn read_tracks(&mut self) -> String;
+}
+impl ReadTracks for DeviceHandle<Context> {
+    fn read_tracks(&mut self) -> String {
+        let raw_data = read_interrupt(self).unwrap();
+        let raw_track_data: RawTrackData = raw_data.try_into().unwrap();
+        dbg!(raw_track_data);
+        //
+        return "".to_string();
+    }
+}
 // fn enable_read(device: &mut DeviceHandle<Context>) {
 //     let request_type = rusb::request_type(Direction::Out, RequestType::Standard, Recipient::Device);
 //     let buf = [
@@ -317,48 +328,7 @@ fn read_voltage(device: &mut DeviceHandle<Context>) -> f64 {
             / 100.0;
     return rounded_voltage;
 }
-fn read_tracks(device: &mut DeviceHandle<Context>) -> String {
-    let raw_track_data = read_interrupt(device).unwrap();
-    println!("raw_track_data: {:?}", raw_track_data.to_hex());
-    println!("raw_track_data.len: {:?}", raw_track_data.len());
-    let rawtrackdata: RawTrackData = raw_track_data.try_into().unwrap();
-    dbg!(rawtrackdata);
 
-    if raw_track_data[1] != 0x1b || raw_track_data[2] != 0x73 {
-        println!("Invalid data");
-        return "".to_string();
-    }
-    // println!("hex_data[0]: {:?}", hex_data[0]);
-
-    let len = raw_track_data[0] as usize;
-    println!("len: {:?}", len);
-    let mut read_index = 3;
-    for i in 1..=3 {
-        println!("TRACK: {:?}", i);
-        if raw_track_data[read_index] != 0x1b || raw_track_data[read_index + 1] != i {
-            println!("Invalid data");
-            println!(
-                "raw_track_data[read_index]: {:?}",
-                raw_track_data[read_index]
-            );
-            println!(
-                "raw_track_data[read_index + 1]: {:?}",
-                raw_track_data[read_index + 1]
-            );
-            println!("i: {:?}", i);
-            return "".to_string();
-        }
-        read_index += 2;
-        let track_len = raw_track_data[read_index] as usize;
-        println!("track_len: {:?}", track_len);
-        read_index += 1;
-        let track_data = &raw_track_data[read_index..read_index + track_len];
-        println!("track_data: {:?}", track_data);
-        read_index += track_len;
-    }
-    //
-    return "".to_string();
-}
 fn read_data(device: &mut DeviceHandle<Context>) -> String {
     let hex_data = read_interrupt(device).unwrap();
 
