@@ -438,13 +438,19 @@ impl TryFrom<[u8; 64]> for RawDeviceData {
 }
 #[derive(Debug)]
 struct RawTrackData {
-    is_header: bool,
-    is_last_packet: bool,
-    raw_data: Vec<u8>,
+    raw_device_data: RawDeviceData,
     track1: Vec<u8>,
     track2: Vec<u8>,
     track3: Vec<u8>,
     status: Status,
+}
+impl RawTrackData {
+    fn is_header(&self) -> bool {
+        self.raw_device_data.is_header
+    }
+    fn is_last_packet(&self) -> bool {
+        self.raw_device_data.is_last_packet
+    }
 }
 impl TryFrom<RawDeviceData> for RawTrackData {
     type Error = MsrxToolError;
@@ -455,9 +461,7 @@ impl TryFrom<RawDeviceData> for RawTrackData {
             return Err(MsrxToolError::RawDataNotCardData);
         }
         let mut data_length = value[0];
-        let is_header = data_length & 0x80 != 0;
-        let is_last_packet = data_length & 0x40 != 0;
-        if is_header && is_last_packet {
+        if raw_device_data.is_header && raw_device_data.is_last_packet {
             data_length &= !(0x80 | 0x40);
         }
         let raw_data = value[1..data_length as usize + 1].to_vec();
@@ -489,9 +493,7 @@ impl TryFrom<RawDeviceData> for RawTrackData {
         let status = Status::from(raw_data[read_index]);
 
         Ok(RawTrackData {
-            raw_data,
-            is_header,
-            is_last_packet,
+            raw_device_data,
             track1: tracks[0].clone(),
             track2: tracks[1].clone(),
             track3: tracks[2].clone(),
@@ -504,6 +506,27 @@ impl TryFrom<RawDeviceData> for RawTrackData {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_convert_raw_data_to_raw_track_data_is_header() -> Result<(), MsrxToolError> {
+        // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
+        let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+        let raw_data: RawDeviceData = data.try_into()?;
+        let raw_track_data: RawTrackData = raw_data.try_into()?;
+
+        assert_eq!(raw_track_data.is_header(), true);
+        Ok(())
+    }
+
+    #[test]
+    fn test_convert_raw_data_to_raw_track_data_is_last_packet() -> Result<(), MsrxToolError> {
+        // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
+        let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+        let raw_data: RawDeviceData = data.try_into()?;
+        let raw_track_data: RawTrackData = raw_data.try_into()?;
+
+        assert_eq!(raw_track_data.is_last_packet(), true);
+        Ok(())
+    }
     mod raw_track_data_statuses {
         use super::*;
 
