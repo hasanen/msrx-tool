@@ -505,8 +505,7 @@ impl TryFrom<[u8; 64]> for RawTrackData {
             tracks.push(track_data);
             read_index += track_len;
         }
-        dbg!(read_index);
-        dbg!(tracks);
+
         // Confirm the ending sequence 3F 1C 1B
         if raw_data[read_index] != 0x3f
             || raw_data[read_index + 1] != 0x1c
@@ -521,9 +520,9 @@ impl TryFrom<[u8; 64]> for RawTrackData {
             raw_data,
             is_header,
             is_last_packet,
-            track1: vec![],
-            track2: vec![],
-            track3: vec![],
+            track1: tracks[0].clone(),
+            track2: tracks[1].clone(),
+            track3: tracks[2].clone(),
             status,
         })
     }
@@ -601,17 +600,20 @@ mod tests {
     }
 
     //TODO do tests for covering cases when tracks are none (manual page 11)
-    // mod raw_track_data_tracks {
-    //     fn test_convert_raw_data_to_raw_track_data_all_tracks_empty() -> Result<(), MsrxToolError> {
-    //         // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-    //         let raw_data = b"\xd3\x1b\x73\x1b\x01\x1b\x02\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+    mod raw_track_data_tracks {
+        use super::*;
 
-    //         let raw_track_data: RawTrackData = (*raw_data).try_into()?;
+        #[test]
+        fn test_convert_raw_data_to_raw_track_data_all_tracks_empty() -> Result<(), MsrxToolError> {
+            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
+            let raw_data = b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
-    //         assert_eq!(raw_track_data.track1, vec![]);
-    //         assert_eq!(raw_track_data.track2, vec![]);
-    //         assert_eq!(raw_track_data.track3, vec!["1"]);
-    //         Ok(())
-    //     }
-    // }
+            let raw_track_data: RawTrackData = (*raw_data).try_into()?;
+
+            assert_eq!(raw_track_data.track1, vec![]);
+            assert_eq!(raw_track_data.track2, vec![]);
+            assert_eq!(raw_track_data.track3, vec![0xaf, 0xc2, 0xb0, 0x00]);
+            Ok(())
+        }
+    }
 }
