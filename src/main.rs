@@ -275,11 +275,11 @@ async fn main() {
         device.attach_kernel_driver(iface).unwrap();
     }
 }
-trait Msrx {
+trait MSRX {
     fn read_tracks(&mut self) -> String;
     fn read_device_interrupt(&mut self) -> Result<RawDeviceData, MsrxToolError>;
 }
-impl Msrx for DeviceHandle<Context> {
+impl MSRX for DeviceHandle<Context> {
     fn read_tracks(&mut self) -> String {
         let raw_data = self.read_device_interrupt().unwrap();
         let raw_track_data: RawTrackData = raw_data.try_into().unwrap();
