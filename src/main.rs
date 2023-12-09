@@ -194,11 +194,11 @@ async fn main() {
     }
 
     println!("Reset device");
-    send_control(&mut device, &Command::Reset.packets());
-    // println!("read firmware");
-    // send_control(&mut device, &Command::GetFirmwareVersion.packets());
-    // let firmware = read_firmware(&mut device);
-    // println!("Firmware: {}", firmware);
+    device.reset().unwrap();
+
+    println!("read firmware");
+    let firmware = device.get_firmware_version().unwrap();
+    println!("Firmware: {}", firmware);
 
     // // Set Bit Control Parity (BCP)
     // send_control(
@@ -251,12 +251,12 @@ async fn main() {
     // let model = read_data(&mut device);
     // println!("model: {}", model);
 
-    println!("Enable reading");
-    send_control(&mut device, &Command::SetReadModeOn.packets());
-    let _ = device.read_tracks();
-    println!("Disable reading");
-    send_control(&mut device, &Command::SetReadModeOff.packets());
-    let _ = read_success(&mut device);
+    // println!("Enable reading");
+    // send_control(&mut device, &Command::SetReadModeOn.packets());
+    // let _ = device.read_tracks();
+    // println!("Disable reading");
+    // send_control(&mut device, &Command::SetReadModeOff.packets());
+    // let _ = read_success(&mut device);
 
     // enable_read(&mut device);
 
@@ -276,10 +276,27 @@ async fn main() {
     }
 }
 trait MSRX {
+    fn reset(&mut self) -> Result<bool, MsrxToolError>;
+    fn get_firmware_version(&mut self) -> Result<String, MsrxToolError>;
     fn read_tracks(&mut self) -> String;
     fn read_device_interrupt(&mut self) -> Result<RawDeviceData, MsrxToolError>;
+    fn send_device_control(&mut self, packets: &Vec<u8>);
+    fn run_command(&mut self, command: &Command) -> Result<bool, MsrxToolError>;
+    fn send_control_chunk(&mut self, chunk: &Vec<u8>);
+    fn read_success(&mut self) -> Result<bool, MsrxToolError>;
 }
 impl MSRX for DeviceHandle<Context> {
+    fn reset(&mut self) -> Result<bool, MsrxToolError> {
+        self.run_command(&Command::Reset)?;
+        let result = self.read_success()?;
+        Ok(result)
+    }
+    fn get_firmware_version(&mut self) -> Result<String, MsrxToolError> {
+        self.run_command(&Command::GetFirmwareVersion)?;
+        let raw_device_data = self.read_device_interrupt()?;
+        let firmware = raw_device_data.to_string();
+        Ok(firmware)
+    }
     fn read_tracks(&mut self) -> String {
         let raw_data = self.read_device_interrupt().unwrap();
         let raw_track_data: RawTrackData = raw_data.try_into().unwrap();
@@ -287,12 +304,55 @@ impl MSRX for DeviceHandle<Context> {
         //
         return "".to_string();
     }
-
     fn read_device_interrupt(&mut self) -> Result<RawDeviceData, MsrxToolError> {
         let mut raw_data: [u8; 64] = [0; 64];
         let _ = self.read_interrupt(0x81, &mut raw_data, Duration::from_secs(10))?;
 
         raw_data.try_into()
+    }
+
+    fn run_command(&mut self, command: &Command) -> Result<bool, MsrxToolError> {
+        let packets = command.packets();
+        self.send_device_control(&packets);
+        Ok(true)
+    }
+
+    fn send_device_control(&mut self, packets: &Vec<u8>) {
+        let mut written = 0;
+        let incoming_packet_length = packets.len();
+
+        while written < incoming_packet_length {
+            let mut header = 128;
+            let mut packet_length = 63;
+
+            if incoming_packet_length - written < packet_length {
+                header += 64;
+                packet_length = (incoming_packet_length - written) as usize;
+            }
+            header += packet_length as u8;
+            let chunk_length = written + packet_length;
+            let chunk: Vec<u8> = std::iter::once(header)
+                .chain(packets[written..chunk_length].iter().cloned())
+                .collect();
+
+            written += packet_length;
+            println!("chunk: {:?}", chunk);
+            self.send_control_chunk(&chunk);
+        }
+    }
+
+    fn send_control_chunk(&mut self, chunk: &Vec<u8>) {
+        let result = self.write_control(0x21, 9, 0x0300, 0, &chunk, Duration::from_secs(10));
+        dbg!(result);
+    }
+
+    fn read_success(&mut self) -> Result<bool, MsrxToolError> {
+        let hex_data = read_interrupt(self)?;
+        println!("hex_data: {:?}", hex_data);
+
+        // First byte is the length of the data
+        // so skipping it
+        Ok(hex_data[1] == 0x1b && hex_data[2] == 0x30)
     }
 }
 
@@ -332,15 +392,6 @@ fn read_data(device: &mut DeviceHandle<Context>) -> String {
     return String::from_utf8_lossy(&bytes).to_string();
 }
 
-fn read_success(device: &mut DeviceHandle<Context>) -> Result<bool, MsrxToolError> {
-    let hex_data = read_interrupt(device)?;
-    println!("hex_data: {:?}", hex_data);
-
-    // First byte is the length of the data
-    // so skipping it
-    Ok(hex_data[1] == 0x1b && hex_data[2] == 0x30)
-}
-
 fn read_interrupt(device: &mut DeviceHandle<Context>) -> Result<[u8; 64], MsrxToolError> {
     let mut inbuf: [u8; 64] = [0; 64];
     let result = device.read_interrupt(0x81, &mut inbuf, Duration::from_secs(10))?;
@@ -350,37 +401,6 @@ fn read_bulk(device: &mut DeviceHandle<Context>) -> [u8; 200] {
     let mut inbuf: [u8; 200] = [0; 200];
     device.read_bulk(0x81, &mut inbuf, Duration::from_secs(10));
     return inbuf;
-}
-
-fn send_control(device: &mut DeviceHandle<Context>, packets: &Vec<u8>) {
-    let mut written = 0;
-    let incoming_packet_length = packets.len();
-
-    while written < incoming_packet_length {
-        let mut header = 128;
-        let mut packet_length = 63;
-
-        if incoming_packet_length - written < packet_length {
-            header += 64;
-            packet_length = (incoming_packet_length - written) as usize;
-        }
-        header += packet_length as u8;
-        let chunk_length = written + packet_length;
-        let chunk: Vec<u8> = std::iter::once(header)
-            .chain(packets[written..chunk_length].iter().cloned())
-            .collect();
-
-        written += packet_length;
-        println!("chunk: {:?}", chunk);
-        send_control_chunk(device, &chunk);
-    }
-}
-
-fn send_control_chunk(device: &mut DeviceHandle<Context>, chunk: &Vec<u8>) {
-    let request_type = rusb::request_type(Direction::Out, RequestType::Standard, Recipient::Device);
-
-    let result = device.write_control(0x21, 9, 0x0300, 0, &chunk, Duration::from_secs(10));
-    dbg!(result);
 }
 
 fn read_return(device: &mut DeviceHandle<Context>) {
@@ -422,6 +442,13 @@ struct RawDeviceData {
     raw_data: [u8; 64],
 }
 
+impl RawDeviceData {
+    fn stripped_data(&self) -> Vec<u8> {
+        let length = self.raw_data[0] & !(0x80 | 0x40);
+        self.raw_data[2..1 + length as usize].to_vec()
+    }
+}
+
 impl TryFrom<[u8; 64]> for RawDeviceData {
     type Error = MsrxToolError;
 
@@ -434,6 +461,11 @@ impl TryFrom<[u8; 64]> for RawDeviceData {
             is_last_packet,
             raw_data,
         })
+    }
+}
+impl std::fmt::Display for RawDeviceData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.stripped_data()))
     }
 }
 #[derive(Debug)]
@@ -609,6 +641,19 @@ mod tests {
             assert_eq!(raw_track_data.track1, vec![]);
             assert_eq!(raw_track_data.track2, vec![]);
             assert_eq!(raw_track_data.track3, vec![0xaf, 0xc2, 0xb0, 0x00]);
+            Ok(())
+        }
+    }
+
+    mod raw_device_data_tests {
+        use super::*;
+        #[test]
+        fn test_convert_raw_data_to_raw_track_data_all_tracks_empty() -> Result<(), MsrxToolError> {
+            // content should be: REVT3.12
+            let data = *b"\xc9\x1b\x52\x45\x56\x54\x33\x2e\x31\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+            let raw_data: RawDeviceData = data.try_into()?;
+
+            assert_eq!(raw_data.to_string(), "REVT3.12");
             Ok(())
         }
     }
