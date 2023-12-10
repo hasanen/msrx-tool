@@ -4,23 +4,14 @@ use rusb::{Direction, Recipient, RequestType};
 use std::os::macos::raw;
 use std::process;
 use std::time::Duration;
-use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::time::sleep;
 
-#[derive(Error, Debug)]
-pub enum MsrxToolError {
-    #[error("device error")]
-    DeviceError(#[from] rusb::Error),
-    #[error("Raw data was not card data")]
-    RawDataNotCardData,
-    #[error("Couldn't set BPI for track {0}")]
-    ErrorSettingBPI(usize),
-    #[error("Couldn't set leading zeros")]
-    ErrorSettingLeadingZeros,
-    #[error("unknown conversion error")]
-    Unknown,
-}
+mod msrx_tool_error;
+mod track_data;
+use msrx_tool_error::MsrxToolError;
+use track_data::TrackData;
+
 enum Command {
     Reset,
     GetFirmwareVersion,
@@ -550,12 +541,13 @@ impl std::fmt::Display for RawDeviceData {
         write!(f, "{}", String::from_utf8_lossy(&self.stripped_data()))
     }
 }
+
 #[derive(Debug)]
 struct RawTrackData {
     raw_device_data: RawDeviceData,
-    track1: Vec<u8>,
-    track2: Vec<u8>,
-    track3: Vec<u8>,
+    track1: TrackData,
+    track2: TrackData,
+    track3: TrackData,
     status: Status,
 }
 impl RawTrackData {
@@ -608,9 +600,9 @@ impl TryFrom<RawDeviceData> for RawTrackData {
 
         Ok(RawTrackData {
             raw_device_data,
-            track1: tracks[0].clone(),
-            track2: tracks[1].clone(),
-            track3: tracks[2].clone(),
+            track1: tracks[0].clone().try_into()?,
+            track2: tracks[1].clone().try_into()?,
+            track3: tracks[2].clone().try_into()?,
             status,
         })
     }
@@ -709,28 +701,10 @@ mod tests {
         }
     }
 
-    //TODO do tests for covering cases when tracks are none (manual page 11)
-    mod raw_track_data_tracks {
-        use super::*;
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_all_tracks_empty() -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.track1, vec![]);
-            assert_eq!(raw_track_data.track2, vec![]);
-            assert_eq!(raw_track_data.track3, vec![0xaf, 0xc2, 0xb0, 0x00]);
-            Ok(())
-        }
-    }
-
     mod raw_device_data_tests {
         use super::*;
         #[test]
-        fn test_convert_raw_data_to_raw_track_data_all_tracks_empty() -> Result<(), MsrxToolError> {
+        fn test_convert_raw_data_to_firmware_version() -> Result<(), MsrxToolError> {
             // content should be: REVT3.12
             let data = *b"\xc9\x1b\x52\x45\x56\x54\x33\x2e\x31\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
             let raw_data: RawDeviceData = data.try_into()?;
