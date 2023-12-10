@@ -1,16 +1,18 @@
 use hex::FromHex;
-use rusb::{Context, Device, DeviceHandle, DeviceList, UsbContext};
-use rusb::{Direction, Recipient, RequestType};
-use std::os::macos::raw;
+use rusb::{Context, DeviceHandle, UsbContext};
 use std::process;
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
-use tokio::time::sleep;
 
+mod config;
 mod msrx_tool_error;
+mod raw_device_data;
+mod raw_tracks_data;
 mod track_data;
+mod track_status;
+use config::DeviceConfig;
 use msrx_tool_error::MsrxToolError;
-use track_data::TrackData;
+use raw_device_data::RawDeviceData;
+use raw_tracks_data::RawTracksData;
 
 enum Command {
     Reset,
@@ -54,106 +56,6 @@ impl Command {
         let mut packets = self.packets().to_vec();
         packets.extend(payload);
         return packets;
-    }
-}
-
-#[derive(Debug)]
-struct Track {
-    bpc: u8,
-    bpi: u8,
-    bpi75: u8,
-    bpi210: u8,
-}
-impl Track {
-    fn bpi_packets(&self) -> Vec<u8> {
-        match self.bpi {
-            75 => vec![self.bpi75].clone(),
-            210 => vec![self.bpi210].clone(),
-            _ => panic!("Invalid BPI"),
-        }
-    }
-}
-enum Tracks {
-    Track1,
-    Track2,
-    Track3,
-}
-#[derive(Debug)]
-struct DeviceConfig {
-    track1: Track,
-    track2: Track,
-    track3: Track,
-    leading_zero210: u8,
-    leading_zero75: u8,
-    is_hi_co: bool,
-    product_id: u16,
-    vendor_id: u16,
-}
-
-impl DeviceConfig {
-    fn msrx6() -> DeviceConfig {
-        DeviceConfig {
-            track1: Track {
-                bpc: 7,
-                bpi: 210,
-                bpi75: 0xa0,
-                bpi210: 0xa1,
-            },
-            track2: Track {
-                bpc: 5,
-                bpi: 75,
-                bpi75: 0xc0,
-                bpi210: 0xc1,
-            },
-            track3: Track {
-                bpc: 5,
-                bpi: 210,
-                bpi75: 0x4b,
-                bpi210: 0xd2,
-            },
-            leading_zero210: 61,
-            leading_zero75: 22,
-            is_hi_co: true,
-            product_id: 0x0003,
-            vendor_id: 0x0801,
-        }
-    }
-
-    fn bpc_packets(&self) -> Vec<u8> {
-        [self.track1.bpc, self.track2.bpc, self.track3.bpc]
-            .iter()
-            .cloned()
-            .collect::<Vec<u8>>()
-    }
-
-    fn leading_zero_packets(&self) -> Vec<u8> {
-        [self.leading_zero210, self.leading_zero75]
-            .iter()
-            .cloned()
-            .collect::<Vec<u8>>()
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-enum Status {
-    Ok,
-    WriteOrReadError,
-    CommandFormatError,
-    InvalidCommand,
-    InvalidCardSwipeOnWrite,
-    Unknown,
-}
-
-impl From<u8> for Status {
-    fn from(value: u8) -> Self {
-        match value {
-            0x30 => Status::Ok,
-            0x31 => Status::WriteOrReadError,
-            0x32 => Status::CommandFormatError,
-            0x34 => Status::InvalidCommand,
-            0x39 => Status::InvalidCardSwipeOnWrite,
-            _ => Status::Unknown,
-        }
     }
 }
 
@@ -368,7 +270,7 @@ impl MSRX for DeviceHandle<Context> {
     }
     fn read_tracks(&mut self) -> String {
         let raw_data = self.read_device_interrupt().unwrap();
-        let raw_track_data: RawTrackData = raw_data.try_into().unwrap();
+        let raw_track_data: RawTracksData = raw_data.try_into().unwrap();
         dbg!(raw_track_data);
         //
         return "".to_string();
@@ -501,216 +403,5 @@ where
             .map(|b| format!("{:02x}", b))
             .collect::<Vec<_>>()
             .join(" ")
-    }
-}
-
-#[derive(Debug)]
-struct RawDeviceData {
-    is_header: bool,
-    is_last_packet: bool,
-    raw_data: [u8; 64],
-}
-
-impl RawDeviceData {
-    fn stripped_data(&self) -> Vec<u8> {
-        let length = self.raw_data[0] & !(0x80 | 0x40);
-        self.raw_data[2..1 + length as usize].to_vec()
-    }
-
-    fn did_failed(&self) -> bool {
-        self.raw_data[1] == 0x1b && self.raw_data[2] == 0x31
-    }
-}
-
-impl TryFrom<[u8; 64]> for RawDeviceData {
-    type Error = MsrxToolError;
-
-    fn try_from(raw_data: [u8; 64]) -> Result<Self, Self::Error> {
-        let is_header = raw_data[0] & 0x80 != 0;
-        let is_last_packet = raw_data[0] & 0x40 != 0;
-
-        Ok(RawDeviceData {
-            is_header,
-            is_last_packet,
-            raw_data,
-        })
-    }
-}
-impl std::fmt::Display for RawDeviceData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(&self.stripped_data()))
-    }
-}
-
-#[derive(Debug)]
-struct RawTrackData {
-    raw_device_data: RawDeviceData,
-    track1: TrackData,
-    track2: TrackData,
-    track3: TrackData,
-    status: Status,
-}
-impl RawTrackData {
-    fn is_header(&self) -> bool {
-        self.raw_device_data.is_header
-    }
-    fn is_last_packet(&self) -> bool {
-        self.raw_device_data.is_last_packet
-    }
-}
-impl TryFrom<RawDeviceData> for RawTrackData {
-    type Error = MsrxToolError;
-
-    fn try_from(raw_device_data: RawDeviceData) -> Result<Self, Self::Error> {
-        let value = raw_device_data.raw_data;
-        if value[1] != 0x1b || value[2] != 0x73 {
-            return Err(MsrxToolError::RawDataNotCardData);
-        }
-        let mut data_length = value[0];
-        if raw_device_data.is_header && raw_device_data.is_last_packet {
-            data_length &= !(0x80 | 0x40);
-        }
-        let raw_data = value[1..data_length as usize + 1].to_vec();
-
-        dbg!(&raw_data);
-
-        let mut read_index = 2;
-        let mut tracks: Vec<Vec<u8>> = vec![];
-        for i in 1..=3 {
-            if raw_data[read_index] != 0x1b || raw_data[read_index + 1] != i {
-                return Err(MsrxToolError::RawDataNotCardData);
-            }
-            read_index += 2;
-            let track_len = raw_data[read_index] as usize;
-            read_index += 1;
-            let track_data = raw_data[read_index..read_index + track_len].to_vec();
-            tracks.push(track_data);
-            read_index += track_len;
-        }
-
-        // Confirm the ending sequence 3F 1C 1B
-        if raw_data[read_index] != 0x3f
-            || raw_data[read_index + 1] != 0x1c
-            || raw_data[read_index + 2] != 0x1b
-        {
-            return Err(MsrxToolError::RawDataNotCardData);
-        }
-        read_index += 3;
-        let status = Status::from(raw_data[read_index]);
-
-        Ok(RawTrackData {
-            raw_device_data,
-            track1: tracks[0].clone().try_into()?,
-            track2: tracks[1].clone().try_into()?,
-            track3: tracks[2].clone().try_into()?,
-            status,
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_convert_raw_data_to_raw_track_data_is_header() -> Result<(), MsrxToolError> {
-        // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-        let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        let raw_data: RawDeviceData = data.try_into()?;
-        let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-        assert_eq!(raw_track_data.is_header(), true);
-        Ok(())
-    }
-
-    #[test]
-    fn test_convert_raw_data_to_raw_track_data_is_last_packet() -> Result<(), MsrxToolError> {
-        // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-        let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        let raw_data: RawDeviceData = data.try_into()?;
-        let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-        assert_eq!(raw_track_data.is_last_packet(), true);
-        Ok(())
-    }
-    mod raw_track_data_statuses {
-        use super::*;
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_status_ok() -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.status, Status::Ok);
-            Ok(())
-        }
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_status_write_or_read_error(
-        ) -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data =
-                *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.status, Status::WriteOrReadError);
-            Ok(())
-        }
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_status_command_format_error(
-        ) -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data =
-                *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.status, Status::CommandFormatError);
-            Ok(())
-        }
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_status_invalid_command(
-        ) -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data =
-                *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x34\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.status, Status::InvalidCommand);
-            Ok(())
-        }
-
-        #[test]
-        fn test_convert_raw_data_to_raw_track_data_status_invalid_card_swipe(
-        ) -> Result<(), MsrxToolError> {
-            // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-            let data =
-                *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x39\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-            let raw_track_data: RawTrackData = raw_data.try_into()?;
-
-            assert_eq!(raw_track_data.status, Status::InvalidCardSwipeOnWrite);
-            Ok(())
-        }
-    }
-
-    mod raw_device_data_tests {
-        use super::*;
-        #[test]
-        fn test_convert_raw_data_to_firmware_version() -> Result<(), MsrxToolError> {
-            // content should be: REVT3.12
-            let data = *b"\xc9\x1b\x52\x45\x56\x54\x33\x2e\x31\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
-
-            assert_eq!(raw_data.to_string(), "REVT3.12");
-            Ok(())
-        }
     }
 }
