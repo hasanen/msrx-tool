@@ -14,13 +14,16 @@ pub enum MsrxToolError {
     DeviceError(#[from] rusb::Error),
     #[error("Raw data was not card data")]
     RawDataNotCardData,
+    #[error("Couldn't set BPI for track {0}")]
+    ErrorSettingBPI(usize),
+    #[error("Couldn't set leading zeros")]
+    ErrorSettingLeadingZeros,
     #[error("unknown conversion error")]
     Unknown,
 }
 enum Command {
     Reset,
     GetFirmwareVersion,
-    GetVoltage,
     GetDeviceModel,
     SetBCP,
     SetBPI,
@@ -40,7 +43,6 @@ impl Command {
         match self {
             Command::Reset => vec![0x1b, 0x61],
             Command::GetFirmwareVersion => vec![0x1b, 0x76],
-            Command::GetVoltage => vec![0x1b, 0xa3],
             Command::GetDeviceModel => vec![0x1b, 0x74],
             Command::SetBCP => vec![0x1b, 0x6f],
             Command::SetBPI => vec![0x1b, 0x62],
@@ -80,6 +82,11 @@ impl Track {
         }
     }
 }
+enum Tracks {
+    Track1,
+    Track2,
+    Track3,
+}
 #[derive(Debug)]
 struct DeviceConfig {
     track1: Track,
@@ -96,7 +103,7 @@ impl DeviceConfig {
     fn msrx6() -> DeviceConfig {
         DeviceConfig {
             track1: Track {
-                bpc: 5,
+                bpc: 7,
                 bpi: 210,
                 bpi75: 0xa0,
                 bpi210: 0xa1,
@@ -158,98 +165,174 @@ impl From<u8> for Status {
         }
     }
 }
+
+#[derive(Debug)]
+struct MsrxDevice {
+    device_handle: DeviceHandle<Context>,
+    config: DeviceConfig,
+    kernel_detached: bool,
+    interface: u8,
+}
+
+impl MsrxDevice {
+    fn init_msrx6() -> MsrxDevice {
+        let config = DeviceConfig::msrx6();
+        // Initialize a USB context
+        let context = Context::new().expect("Failed to initialize USB context");
+
+        let device_handle =
+            match context.open_device_with_vid_pid(config.vendor_id, config.product_id) {
+                Some(device) => device,
+                None => {
+                    println!("Device not found");
+                    process::exit(1)
+                }
+            };
+
+        MsrxDevice {
+            device_handle,
+            config,
+            kernel_detached: false,
+            interface: 0,
+        }
+    }
+
+    fn detach_kernel_driver(&mut self) -> Result<(), MsrxToolError> {
+        if self.device_handle.kernel_driver_active(self.interface)? {
+            println!("Kernel driver active");
+            self.kernel_detached = true;
+            self.device_handle.detach_kernel_driver(self.interface)?;
+            Ok(())
+        } else {
+            println!("Kernel driver not active");
+            Ok(())
+        }
+    }
+
+    fn claim_interface(&mut self) -> Result<(), MsrxToolError> {
+        self.device_handle.claim_interface(self.interface)?;
+        Ok(())
+    }
+
+    fn release_interface(&mut self) -> Result<(), MsrxToolError> {
+        self.device_handle.release_interface(self.interface)?;
+        Ok(())
+    }
+
+    fn attach_kernel_driver(&mut self) -> Result<(), MsrxToolError> {
+        dbg!(self.kernel_detached);
+        if self.kernel_detached {
+            self.device_handle
+                .attach_kernel_driver(self.interface)
+                .unwrap();
+        }
+        Ok(())
+    }
+
+    fn set_bit_control_parity(&mut self) -> Result<(), MsrxToolError> {
+        self.device_handle
+            .send_device_control(&Command::SetBCP.with_payload(&self.config.bpc_packets()))?;
+        let result = self.device_handle.read_device_interrupt()?;
+
+        if result.raw_data[1] == 0x1b
+            && result.raw_data[2] == 0x30
+            && result.raw_data[3] == self.config.track1.bpc
+            && result.raw_data[4] == self.config.track2.bpc
+            && result.raw_data[5] == self.config.track3.bpc
+        {
+            Ok(())
+        } else {
+            Err(MsrxToolError::Unknown)
+        }
+    }
+
+    fn set_hico_loco_mode(&mut self) -> Result<(), MsrxToolError> {
+        if self.config.is_hi_co {
+            self.device_handle
+                .send_device_control(&Command::SetHiCo.packets())?;
+        } else {
+            self.device_handle
+                .send_device_control(&Command::SetLoCo.packets())?;
+        }
+        let result = self.device_handle.read_device_interrupt()?;
+
+        if result.raw_data[1] == 0x1b && result.raw_data[2] == 0x30 {
+            Ok(())
+        } else {
+            Err(MsrxToolError::Unknown)
+        }
+    }
+
+    fn set_bit_per_inches(&mut self) -> Result<(), MsrxToolError> {
+        for (index, packets) in [
+            &self.config.track1.bpi_packets(),
+            &self.config.track2.bpi_packets(),
+            &self.config.track3.bpi_packets(),
+        ]
+        .iter()
+        .enumerate()
+        {
+            self.device_handle
+                .send_device_control(&Command::SetBPI.with_payload(&packets))?;
+            let result = self.device_handle.read_device_interrupt()?;
+
+            if result.did_failed() {
+                return Err(MsrxToolError::ErrorSettingBPI(index + 1));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn set_leading_zeros(&mut self) -> Result<(), MsrxToolError> {
+        self.device_handle.send_device_control(
+            &Command::SetLeadingZeros.with_payload(&self.config.leading_zero_packets()),
+        )?;
+        let result = self.device_handle.read_device_interrupt()?;
+        if result.did_failed() {
+            return Err(MsrxToolError::ErrorSettingLeadingZeros);
+        }
+        Ok(())
+    }
+
+    fn get_model(&mut self) -> Result<String, MsrxToolError> {
+        self.device_handle.run_command(&Command::GetDeviceModel)?;
+        let raw_device_data = self.device_handle.read_device_interrupt()?;
+        Ok(raw_device_data.to_string())
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    let msrx6 = DeviceConfig::msrx6();
-    // Initialize a USB context
-    let context = Context::new().expect("Failed to initialize USB context");
+    let mut msrx_device = MsrxDevice::init_msrx6();
 
-    let mut device = match context.open_device_with_vid_pid(msrx6.vendor_id, msrx6.product_id) {
-        Some(device) => device,
-        None => {
-            println!("Device not found");
-            process::exit(1)
-        }
-    };
+    dbg!(&msrx_device);
 
-    dbg!(&device);
-    let iface = 0;
-    let mut kernel_detached = false;
-    if device.kernel_driver_active(iface).unwrap_or(false) {
-        println!("Kernel driver active");
-        match &device.detach_kernel_driver(iface) {
-            Ok(_) => {
-                println!("Kernel driver detached");
-                kernel_detached = true;
-            }
-            Err(e) => {
-                println!("Error detaching kernel driver: {}", e);
-                process::exit(1)
-            }
-        }
-    }
-    if device.claim_interface(iface).is_err() {
-        println!("Error claiming interface");
-        process::exit(1)
-    }
+    let _ = msrx_device.detach_kernel_driver();
+    let _ = msrx_device.claim_interface();
 
     println!("Reset device");
-    device.reset().unwrap();
+    msrx_device.device_handle.reset().unwrap();
 
     println!("read firmware");
-    let firmware = device.get_firmware_version().unwrap();
+    let firmware = msrx_device.device_handle.get_firmware_version().unwrap();
     println!("Firmware: {}", firmware);
 
-    // // Set Bit Control Parity (BCP)
-    // send_control(
-    //     &mut device,
-    //     &Command::SetBCP.with_payload(&msrx6.bpc_packets()),
-    // );
-    // read_success(&mut device);
+    println!("Set BPC");
+    let _ = msrx_device.set_bit_control_parity();
 
-    // if (msrx6.is_hi_co) {
-    //     send_control(&mut device, &Command::SetHiCo.packets());
-    // } else {
-    //     send_control(&mut device, &Command::SetLoCo.packets());
-    // }
-    // read_success(&mut device);
+    println!("Set HiCo/LoCo mode");
+    let _ = msrx_device.set_hico_loco_mode();
 
-    // println!("Set BPI track1");
-    // send_control(
-    //     &mut device,
-    //     &Command::SetBPI.with_payload(&msrx6.track1.bpi_packets()),
-    // );
-    // read_success(&mut device);
+    println!("Set BPI");
+    let _ = msrx_device.set_bit_per_inches();
 
-    // println!("Set BPI track2");
-    // send_control(
-    //     &mut device,
-    //     &Command::SetBPI.with_payload(&msrx6.track2.bpi_packets()),
-    // );
-    // read_success(&mut device);
+    println!("Set leading zeros");
+    let _ = msrx_device.set_leading_zeros();
 
-    // println!("Set BPI track3");
-    // send_control(
-    //     &mut device,
-    //     &Command::SetBPI.with_payload(&msrx6.track3.bpi_packets()),
-    // );
-    // read_success(&mut device);
-    // println!("Set leading zeros");
-    // send_control(
-    //     &mut device,
-    //     &Command::SetLeadingZeros.with_payload(&msrx6.leading_zero_packets()),
-    // );
-    // read_success(&mut device);
-
-    // println!("Get voltage");
-    // send_control(&mut device, &Command::GetVoltage.packets());
-    // let voltage = read_voltage(&mut device);
-    // println!("Voltage: {}", voltage);
-
-    // println!("Get model");
-    // send_control(&mut device, &Command::GetDeviceModel.packets());
-    // let model = read_data(&mut device);
-    // println!("model: {}", model);
+    println!("Get model");
+    let model = msrx_device.get_model().unwrap();
+    println!("Firmware: {}", model);
 
     // println!("Enable reading");
     // send_control(&mut device, &Command::SetReadModeOn.packets());
@@ -267,22 +350,17 @@ async fn main() {
 
     // disable_read(&mut device);
 
-    if device.release_interface(iface).is_err() {
-        println!("Error claiming interface");
-        process::exit(1)
-    }
-    if kernel_detached {
-        device.attach_kernel_driver(iface).unwrap();
-    }
+    let _ = msrx_device.release_interface();
+    let _ = msrx_device.attach_kernel_driver();
 }
 trait MSRX {
     fn reset(&mut self) -> Result<bool, MsrxToolError>;
     fn get_firmware_version(&mut self) -> Result<String, MsrxToolError>;
     fn read_tracks(&mut self) -> String;
     fn read_device_interrupt(&mut self) -> Result<RawDeviceData, MsrxToolError>;
-    fn send_device_control(&mut self, packets: &Vec<u8>);
+    fn send_device_control(&mut self, packets: &Vec<u8>) -> Result<(), MsrxToolError>;
     fn run_command(&mut self, command: &Command) -> Result<bool, MsrxToolError>;
-    fn send_control_chunk(&mut self, chunk: &Vec<u8>);
+    fn send_control_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), MsrxToolError>;
     fn read_success(&mut self) -> Result<bool, MsrxToolError>;
 }
 impl MSRX for DeviceHandle<Context> {
@@ -313,11 +391,11 @@ impl MSRX for DeviceHandle<Context> {
 
     fn run_command(&mut self, command: &Command) -> Result<bool, MsrxToolError> {
         let packets = command.packets();
-        self.send_device_control(&packets);
+        self.send_device_control(&packets)?;
         Ok(true)
     }
 
-    fn send_device_control(&mut self, packets: &Vec<u8>) {
+    fn send_device_control(&mut self, packets: &Vec<u8>) -> Result<(), MsrxToolError> {
         let mut written = 0;
         let incoming_packet_length = packets.len();
 
@@ -336,14 +414,14 @@ impl MSRX for DeviceHandle<Context> {
                 .collect();
 
             written += packet_length;
-            println!("chunk: {:?}", chunk);
-            self.send_control_chunk(&chunk);
+            self.send_control_chunk(&chunk)?;
         }
+        Ok(())
     }
 
-    fn send_control_chunk(&mut self, chunk: &Vec<u8>) {
-        let result = self.write_control(0x21, 9, 0x0300, 0, &chunk, Duration::from_secs(10));
-        dbg!(result);
+    fn send_control_chunk(&mut self, chunk: &Vec<u8>) -> Result<(), MsrxToolError> {
+        let _ = self.write_control(0x21, 9, 0x0300, 0, &chunk, Duration::from_secs(10))?;
+        Ok(())
     }
 
     fn read_success(&mut self) -> Result<bool, MsrxToolError> {
@@ -446,6 +524,10 @@ impl RawDeviceData {
     fn stripped_data(&self) -> Vec<u8> {
         let length = self.raw_data[0] & !(0x80 | 0x40);
         self.raw_data[2..1 + length as usize].to_vec()
+    }
+
+    fn did_failed(&self) -> bool {
+        self.raw_data[1] == 0x1b && self.raw_data[2] == 0x31
     }
 }
 
