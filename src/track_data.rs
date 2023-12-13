@@ -1,4 +1,5 @@
 use crate::msrx_tool_error::MsrxToolError;
+use crate::reverse_string::ReverseString;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -71,6 +72,27 @@ lazy_static! {
         m.insert("1111111", "_");
         m
     };
+    static ref TRACK2_3_BIN_TO_ASCII: HashMap<&'static str, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert("00001", "0");
+        m.insert("10000", "1");
+        m.insert("01000", "2");
+        m.insert("11001", "3");
+        m.insert("00100", "4");
+        m.insert("10101", "5");
+        m.insert("01101", "6");
+        m.insert("11100", "7");
+        m.insert("00010", "8");
+        m.insert("10011", "9");
+        m.insert("01011", ":");
+        m.insert("11010", ";");
+        m.insert("00111", "<");
+        m.insert("10110", "=");
+        m.insert("01110", ">");
+        m.insert("11111", "?");
+
+        m
+    };
 }
 
 enum TrackType {
@@ -116,14 +138,6 @@ impl TryFrom<Vec<u8>> for TrackData {
 
     fn try_from(raw: Vec<u8>) -> Result<Self, Self::Error> {
         Ok(TrackData { raw })
-    }
-}
-trait ReverseString {
-    fn reverse(&self) -> String;
-}
-impl ReverseString for str {
-    fn reverse(&self) -> String {
-        self.chars().rev().collect::<String>()
     }
 }
 #[cfg(test)]

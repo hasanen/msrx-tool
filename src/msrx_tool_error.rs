@@ -10,6 +10,8 @@ pub enum MsrxToolError {
     ErrorSettingBPI(usize),
     #[error("Couldn't set leading zeros")]
     ErrorSettingLeadingZeros,
+    #[error("Bit conversion error")]
+    BitConversionError,
     #[error("unknown conversion error")]
     Unknown,
 }

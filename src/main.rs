@@ -3,10 +3,12 @@ use rusb::{Context, DeviceHandle, UsbContext};
 use std::process;
 use std::time::Duration;
 
+mod char_bits_conversion;
 mod config;
 mod msrx_tool_error;
 mod raw_device_data;
 mod raw_tracks_data;
+mod reverse_string;
 mod track_data;
 mod track_status;
 use config::DeviceConfig;
