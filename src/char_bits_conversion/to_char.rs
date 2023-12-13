@@ -4,7 +4,7 @@ use std::char;
 
 // Define the trait
 
-pub trait ReversedSignificantBitsToChar {
+pub trait ToChar {
     type Error;
 
     fn from_track_1_bits(&self) -> Result<char, MsrxToolError>;
@@ -12,7 +12,7 @@ pub trait ReversedSignificantBitsToChar {
 }
 
 // Implement the trait for str
-impl<T: AsRef<str>> ReversedSignificantBitsToChar for T {
+impl<T: AsRef<str>> ToChar for T {
     type Error = MsrxToolError;
     fn from_track_1_bits(&self) -> Result<char, MsrxToolError> {
         let mut as_num = usize::from_str_radix(&self.as_ref().reverse()[1..], 2).unwrap();

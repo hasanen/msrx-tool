@@ -1,8 +1,8 @@
 /// Char bits conversion
 /// Module offers traits to convert chars to bits and vice versa depending on which track is being used
 /// Track 1 suppors wider range of characters than track 2 and track 3
-mod from_char;
-mod to_char;
+pub mod from_char;
+pub mod to_char;
 use crate::msrx_tool_error::MsrxToolError;
 
 const TRACK1_SUPPORTED_ASCII: &str =

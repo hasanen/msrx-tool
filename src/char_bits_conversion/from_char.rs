@@ -3,14 +3,14 @@ use crate::msrx_tool_error::MsrxToolError;
 use crate::reverse_string::ReverseString;
 use std::char;
 
-pub trait ReversedSignificantBitsFromChar {
+pub trait FromChar {
     type Error;
 
     fn to_track_1_bits(&self) -> Result<String, MsrxToolError>;
     fn to_track_2_3_bits(&self) -> Result<String, MsrxToolError>;
 }
 
-impl ReversedSignificantBitsFromChar for char {
+impl FromChar for char {
     type Error = MsrxToolError;
 
     fn to_track_1_bits(&self) -> Result<String, MsrxToolError> {
