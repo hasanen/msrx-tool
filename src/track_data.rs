@@ -1,7 +1,7 @@
 use crate::char_bits_conversion::to_char::ToChar;
 use crate::msrx_tool_error::MsrxToolError;
 use crate::reverse_string::ReverseString;
-enum TrackType {
+pub enum TrackType {
     Track1IsoAlphabet,
     Track2_3IsoAlpahbet,
 }
@@ -11,11 +11,12 @@ pub struct TrackData {
     pub raw: Vec<u8>,
 }
 impl TrackData {
-    pub fn to_string_with_bpi(
+    pub fn to_string_with_bpc(
         &self,
         alphabet_track: TrackType,
-        bpi: usize,
+        bpc: usize,
     ) -> Result<String, MsrxToolError> {
+        println!("raw: {:?}", &self);
         if self.raw.len() == 0 {
             return Ok(String::new());
         }
@@ -24,14 +25,22 @@ impl TrackData {
             binary.push_str(&format!("{:08b}", byte).reverse());
         }
 
+        dbg!(bpc);
+
+        dbg!(&binary
+            .as_bytes()
+            .chunks(bpc)
+            .map(|chunk| std::str::from_utf8(chunk).unwrap())
+            .collect::<Vec<&str>>());
         let as_binary: Vec<&str> = binary
             .as_bytes()
-            .chunks(bpi)
+            .chunks(bpc)
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
-            .filter(|chunk| chunk.len() == bpi)
+            .filter(|chunk| chunk.len() == bpc)
             .collect();
         let mut ascii = String::new();
         dbg!(&as_binary);
+        dbg!(&as_binary.len());
         as_binary[..as_binary.len() - 1].iter().for_each(|chunk| {
             let char = match alphabet_track {
                 TrackType::Track1IsoAlphabet => (*chunk).from_track_1_bits(),
@@ -65,7 +74,7 @@ mod tests {
             let track_data: TrackData = TrackData { raw: vec![] };
 
             assert_eq!(
-                track_data.to_string_with_bpi(TrackType::Track1IsoAlphabet, 7)?,
+                track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 7)?,
                 ""
             );
             Ok(())
@@ -73,13 +82,13 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track1() -> Result<(), MsrxToolError>
         {
-            // data is: "1", bpi is 5
+            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
                 raw: vec![0xC5, 0xB0, 0x78, 0x14, 0x95, 0x4E, 0x3E, 0x2A],
             };
 
             assert_eq!(
-                track_data.to_string_with_bpi(TrackType::Track1IsoAlphabet, 7)?,
+                track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 7)?,
                 "%ABC123?"
             );
             Ok(())
@@ -87,13 +96,13 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track2() -> Result<(), MsrxToolError>
         {
-            // data is: "1", bpi is 5
+            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
                 raw: vec![0x2B, 0x88, 0x49, 0xEA, 0xAF],
             };
 
             assert_eq!(
-                track_data.to_string_with_bpi(TrackType::Track2_3IsoAlpahbet, 5)?,
+                track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 5)?,
                 ";12345?"
             );
             Ok(())

@@ -16,6 +16,12 @@ impl RawDeviceData {
     pub fn did_failed(&self) -> bool {
         self.raw_data[1] == 0x1b && self.raw_data[2] == 0x31
     }
+
+    pub fn successful_read(&self) -> bool {
+        // First byte is the length of the data
+        // so skipping it
+        self.raw_data[1] == 0x1b && self.raw_data[2] == 0x30
+    }
 }
 
 impl TryFrom<[u8; 64]> for RawDeviceData {

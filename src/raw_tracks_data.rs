@@ -33,8 +33,6 @@ impl TryFrom<RawDeviceData> for RawTracksData {
         }
         let raw_data = value[1..data_length as usize + 1].to_vec();
 
-        dbg!(&raw_data);
-
         let mut read_index = 2;
         let mut tracks: Vec<Vec<u8>> = vec![];
         for i in 1..=3 {
