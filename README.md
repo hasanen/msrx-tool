@@ -4,7 +4,7 @@ Command line tool for using MSRX6 device from command line.
 
 Some preliminary todo list
 
-- [ ] Detect if device is connected. Show error message
+- [x] Detect if device is connected. Show error message
 - [ ] needs to read the data
   - [ ] `msrx-tool read` : reads all tracks
   - [ ] `msrx-tool read track[1-3]` : reads single track
