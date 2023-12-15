@@ -12,6 +12,8 @@ pub enum MsrxToolError {
     ErrorSettingLeadingZeros,
     #[error("Bit conversion error")]
     BitConversionError,
+    #[error("device not found")]
+    DeviceNotFound,
     #[error("unknown conversion error")]
     Unknown,
 }

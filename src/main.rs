@@ -8,6 +8,7 @@ mod msrx;
 mod msrx_tool_error;
 mod raw_device_data;
 mod raw_tracks_data;
+mod read;
 mod reverse_string;
 mod to_hex;
 mod track_data;
@@ -24,87 +25,67 @@ use track_data::TrackType;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None,arg_required_else_help = true)]
 struct Args {
-    /// Name of the person to greet
-    #[arg(short, long)]
-    device: String,
-
-    /// Command to use: hours, integrations etc
+    /// Command to use: read
     #[clap(subcommand)]
-    command: Option<Command>,
+    command: Option<CliCommand>,
 }
 #[derive(Parser, Debug)]
-enum Command {
+enum CliCommand {
     #[clap(name = "read")]
     /// Read all tracks
-    ReadCommand {
-        #[clap(subcommand)]
-        action: integrations::Action,
-    },
+    Read,
+    #[clap(name = "fw")]
+    /// Print firmware of the device
+    Firmware,
+    #[clap(name = "model")]
+    /// Print model of the device
+    Model,
 }
 
 fn main() {
     let args = Args::parse();
 
-    dbg!(args);
-    // let mut msrx_device = MsrxDevice::init_msrx6().unwrap();
+    let mut msrx_device = match MsrxDevice::init_msrx6() {
+        Ok(device) => device,
+        Err(e) => {
+            println!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+    let _ = msrx_device.detach_kernel_driver();
+    let _ = msrx_device.claim_interface();
 
-    // dbg!(&msrx_device);
+    match msrx_device.device_handle.reset() {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error: {}", e);
+            process::exit(1);
+        }
+    }
 
-    // let _ = msrx_device.detach_kernel_driver();
-    // let _ = msrx_device.claim_interface();
+    let _ = msrx_device.set_bit_control_parity();
+    let _ = msrx_device.set_hico_loco_mode();
+    let _ = msrx_device.set_bit_per_inches();
+    let _ = msrx_device.set_leading_zeros();
 
-    // println!("Reset device");
-    // msrx_device.device_handle.reset().unwrap();
+    match &args.command {
+        Some(CliCommand::Read) => {
+            let _result = read::read_all_tracks().unwrap();
+        }
 
-    // println!("read firmware");
-    // let firmware = msrx_device.device_handle.get_firmware_version().unwrap();
-    // println!("Firmware: {}", firmware);
+        Some(CliCommand::Firmware) => {
+            let firmware = msrx_device.device_handle.get_firmware_version().unwrap();
+            println!("{}", firmware);
+        }
 
-    // println!("Set BPC");
-    // let _ = msrx_device.set_bit_control_parity();
-
-    // println!("Set HiCo/LoCo mode");
-    // let _ = msrx_device.set_hico_loco_mode();
-
-    // println!("Set BPI");
-    // let _ = msrx_device.set_bit_per_inches();
-
-    // println!("Set leading zeros");
-    // let _ = msrx_device.set_leading_zeros();
-
-    // println!("Get model");
-    // let model = msrx_device.get_model().unwrap();
-    // println!("Firmware: {}", model);
-
-    // println!("Read card");
-    // let tracks = msrx_device.read_tracks().unwrap();
-    // dbg!(&tracks.raw_device_data.raw_data.to_hex());
-    // dbg!(&tracks.track3.raw);
-    // println!(
-    //     "Track 1: {:?}",
-    //     tracks.track1.to_string_with_bpc(
-    //         TrackType::Track1IsoAlphabet,
-    //         msrx_device.config.track1.bpc as usize
-    //     )
-    // );
-    // println!(
-    //     "Track 2: {:?}",
-    //     tracks.track2.to_string_with_bpc(
-    //         TrackType::Track2_3IsoAlpahbet,
-    //         msrx_device.config.track2.bpc as usize
-    //     )
-    // );
-    // println!(
-    //     "Track 3: {:?}",
-    //     tracks.track3.to_string_with_bpc(
-    //         TrackType::Track2_3IsoAlpahbet,
-    //         msrx_device.config.track3.bpc as usize
-    //     )
-    // );
-    // msrx_device.device_handle.reset().unwrap();
-
-    // let _ = msrx_device.release_interface();
-    // let _ = msrx_device.attach_kernel_driver();
+        Some(CliCommand::Model) => {
+            let model = msrx_device.get_model().unwrap();
+            println!("{}", model);
+        }
+        None => todo!(),
+    }
+    let _ = msrx_device.release_interface();
+    let _ = msrx_device.attach_kernel_driver();
 }

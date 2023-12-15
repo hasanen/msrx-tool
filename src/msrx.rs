@@ -98,15 +98,14 @@ impl MsrxDevice {
         // Initialize a USB context
         let context = Context::new().expect("Failed to initialize USB context");
 
-        let device_handle = context
-            .open_device_with_vid_pid(config.vendor_id, config.product_id)
-            .unwrap();
-
-        Ok(MsrxDevice {
-            device_handle,
-            config,
-            interface: 0,
-        })
+        match context.open_device_with_vid_pid(config.vendor_id, config.product_id) {
+            Some(device_handle) => Ok(MsrxDevice {
+                device_handle,
+                config,
+                interface: 0,
+            }),
+            None => Err(MsrxToolError::DeviceNotFound),
+        }
     }
 
     pub fn detach_kernel_driver(&mut self) -> Result<(), MsrxToolError> {
@@ -126,7 +125,6 @@ impl MsrxDevice {
 
     pub fn release_interface(&mut self) -> Result<(), MsrxToolError> {
         let res = self.device_handle.release_interface(self.interface)?;
-        dbg!(res);
         Ok(())
     }
 
