@@ -25,6 +25,8 @@ pub struct DeviceConfig {
     pub is_hi_co: bool,
     pub product_id: u16,
     pub vendor_id: u16,
+    pub interrupt_endpoint: u8,
+    pub control_endpoint: u8,
 }
 
 impl DeviceConfig {
@@ -53,6 +55,8 @@ impl DeviceConfig {
             is_hi_co: true,
             product_id: 0x0003,
             vendor_id: 0x0801,
+            interrupt_endpoint: 0x81,
+            control_endpoint: 0x00,
         }
     }
 

@@ -54,21 +54,8 @@ fn main() {
             process::exit(1);
         }
     };
-    let _ = msrx_device.detach_kernel_driver();
-    let _ = msrx_device.claim_interface();
 
-    match msrx_device.device_handle.reset() {
-        Ok(_) => {}
-        Err(e) => {
-            println!("Error: {}", e);
-            process::exit(1);
-        }
-    }
-
-    let _ = msrx_device.set_bit_control_parity();
-    let _ = msrx_device.set_hico_loco_mode();
-    let _ = msrx_device.set_bit_per_inches();
-    let _ = msrx_device.set_leading_zeros();
+    msrx_device.setup_device().unwrap();
 
     match &args.command {
         Some(CliCommand::Read) => {
@@ -76,7 +63,7 @@ fn main() {
         }
 
         Some(CliCommand::Firmware) => {
-            let firmware = msrx_device.device_handle.get_firmware_version().unwrap();
+            let firmware = msrx_device.get_firmware_version().unwrap();
             println!("{}", firmware);
         }
 
@@ -86,6 +73,14 @@ fn main() {
         }
         None => todo!(),
     }
-    let _ = msrx_device.release_interface();
-    let _ = msrx_device.attach_kernel_driver();
+    match msrx_device.device_handle.reset() {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error: {}", e);
+            process::exit(1);
+        }
+    }
+
+    // let _ = msrx_device.release_interface();
+    // let _ = msrx_device.attach_kernel_driver();
 }
