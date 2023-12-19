@@ -1,4 +1,3 @@
-use rusb::{Context, DeviceHandle, UsbContext};
 use std::process;
 
 mod char_bits_conversion;
@@ -8,20 +7,12 @@ mod msrx;
 mod msrx_tool_error;
 mod raw_device_data;
 mod raw_tracks_data;
-mod read;
 mod reverse_string;
 mod to_hex;
 mod track_data;
 mod track_status;
-use crate::to_hex::ToHex;
 use clap::Parser;
-use command::Command;
-use config::DeviceConfig;
-use msrx::{MsrxDevice, MSRX};
-use msrx_tool_error::MsrxToolError;
-use raw_device_data::RawDeviceData;
-use raw_tracks_data::RawTracksData;
-use track_data::TrackType;
+use msrx::MsrxDevice;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]
@@ -59,7 +50,7 @@ fn main() {
 
     match &args.command {
         Some(CliCommand::Read) => {
-            let _result = read::read_all_tracks().unwrap();
+            let _result = msrx_device.read_tracks().unwrap();
         }
 
         Some(CliCommand::Firmware) => {
