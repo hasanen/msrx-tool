@@ -1,6 +1,6 @@
 use crate::msrx_tool_error::MsrxToolError;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct RawData {
     pub is_header: bool,
     pub is_last_packet: bool,
