@@ -1,7 +1,7 @@
 use crate::command::Command;
 use crate::config::DeviceConfig;
 use crate::msrx_tool_error::MsrxToolError;
-use crate::raw_device_data::RawDeviceData;
+use crate::raw_data::RawData;
 use crate::raw_tracks_data::RawTracksData;
 use crate::to_hex::ToHex;
 use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
@@ -14,7 +14,7 @@ pub trait MSRX {
         &mut self,
         endpoint: u8,
         timeout: u64,
-    ) -> Result<RawDeviceData, MsrxToolError>;
+    ) -> Result<RawData, MsrxToolError>;
     fn send_device_control(&mut self, endpoint: u8, packets: &Vec<u8>)
         -> Result<(), MsrxToolError>;
     fn run_command(&mut self, endpoint: u8, command: &Command) -> Result<bool, MsrxToolError>;
@@ -38,7 +38,7 @@ impl MSRX for DeviceHandle<Context> {
         &mut self,
         endpoint: u8,
         timeout: u64,
-    ) -> Result<RawDeviceData, MsrxToolError> {
+    ) -> Result<RawData, MsrxToolError> {
         let mut raw_data: [u8; 64] = [0; 64];
         let _ = self.read_interrupt(0x81, &mut raw_data, Duration::from_secs(timeout))?;
 

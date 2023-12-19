@@ -5,7 +5,7 @@ mod command;
 mod config;
 mod msrx;
 mod msrx_tool_error;
-mod raw_device_data;
+mod raw_data;
 mod raw_tracks_data;
 mod reverse_string;
 mod to_hex;

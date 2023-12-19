@@ -1,11 +1,11 @@
 use crate::msrx_tool_error::MsrxToolError;
-use crate::raw_device_data::RawDeviceData;
+use crate::raw_data::RawData;
 use crate::track_data::TrackData;
 use crate::track_status::TrackStatus;
 
 #[derive(Debug)]
 pub struct RawTracksData {
-    pub raw_device_data: RawDeviceData,
+    pub raw_data: RawData,
     pub track1: TrackData,
     pub track2: TrackData,
     pub track3: TrackData,
@@ -13,16 +13,16 @@ pub struct RawTracksData {
 }
 impl RawTracksData {
     pub fn is_header(&self) -> bool {
-        self.raw_device_data.is_header
+        self.raw_data.is_header
     }
     pub fn is_last_packet(&self) -> bool {
-        self.raw_device_data.is_last_packet
+        self.raw_data.is_last_packet
     }
 }
-impl TryFrom<RawDeviceData> for RawTracksData {
+impl TryFrom<RawData> for RawTracksData {
     type Error = MsrxToolError;
 
-    fn try_from(raw_device_data: RawDeviceData) -> Result<Self, Self::Error> {
+    fn try_from(raw_device_data: RawData) -> Result<Self, Self::Error> {
         let value = raw_device_data.raw_data;
         if value[1] != 0x1b || value[2] != 0x73 {
             return Err(MsrxToolError::RawDataNotCardData);
@@ -58,7 +58,7 @@ impl TryFrom<RawDeviceData> for RawTracksData {
         let status = TrackStatus::from(raw_data[read_index]);
 
         Ok(RawTracksData {
-            raw_device_data,
+            raw_data: raw_device_data,
             track1: tracks[0].clone().try_into()?,
             track2: tracks[1].clone().try_into()?,
             track3: tracks[2].clone().try_into()?,
@@ -75,7 +75,7 @@ mod tests {
     fn test_convert_raw_data_to_raw_track_data_is_header() -> Result<(), MsrxToolError> {
         // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
         let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        let raw_data: RawDeviceData = data.try_into()?;
+        let raw_data: RawData = data.try_into()?;
         let raw_track_data: RawTracksData = raw_data.try_into()?;
 
         assert_eq!(raw_track_data.is_header(), true);
@@ -86,7 +86,7 @@ mod tests {
     fn test_convert_raw_data_to_raw_track_data_is_last_packet() -> Result<(), MsrxToolError> {
         // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
         let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        let raw_data: RawDeviceData = data.try_into()?;
+        let raw_data: RawData = data.try_into()?;
         let raw_track_data: RawTracksData = raw_data.try_into()?;
 
         assert_eq!(raw_track_data.is_last_packet(), true);
@@ -99,7 +99,7 @@ mod tests {
         fn test_convert_raw_data_to_raw_track_data_status_ok() -> Result<(), MsrxToolError> {
             // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
             let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
+            let raw_data: RawData = data.try_into()?;
             let raw_track_data: RawTracksData = raw_data.try_into()?;
 
             assert_eq!(raw_track_data.status, TrackStatus::Ok);
@@ -113,7 +113,7 @@ mod tests {
             let data =
                 *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
-            let raw_data: RawDeviceData = data.try_into()?;
+            let raw_data: RawData = data.try_into()?;
             let raw_track_data: RawTracksData = raw_data.try_into()?;
 
             assert_eq!(raw_track_data.status, TrackStatus::WriteOrReadError);
@@ -126,7 +126,7 @@ mod tests {
             // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
             let data =
                 *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
+            let raw_data: RawData = data.try_into()?;
             let raw_track_data: RawTracksData = raw_data.try_into()?;
 
             assert_eq!(raw_track_data.status, TrackStatus::CommandFormatError);
@@ -139,7 +139,7 @@ mod tests {
             // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
             let data =
                 *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x34\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
+            let raw_data: RawData = data.try_into()?;
             let raw_track_data: RawTracksData = raw_data.try_into()?;
 
             assert_eq!(raw_track_data.status, TrackStatus::InvalidCommand);
@@ -152,7 +152,7 @@ mod tests {
             // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
             let data =
                 *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x39\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-            let raw_data: RawDeviceData = data.try_into()?;
+            let raw_data: RawData = data.try_into()?;
             let raw_track_data: RawTracksData = raw_data.try_into()?;
 
             assert_eq!(raw_track_data.status, TrackStatus::InvalidCardSwipeOnWrite);
