@@ -25,25 +25,27 @@ impl TrackData {
             binary.push_str(&format!("{:08b}", byte).reverse());
         }
 
-        dbg!(bpc);
+        let chunk_size = if bpc > 6 { 7 } else { 6 };
+        dbg!(chunk_size);
 
         dbg!(&binary
             .as_bytes()
-            .chunks(bpc)
+            .chunks(chunk_size)
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
+            .filter(|chunk| chunk.len() == chunk_size)
             .collect::<Vec<&str>>());
         let as_binary: Vec<&str> = binary
             .as_bytes()
-            .chunks(bpc)
+            .chunks(chunk_size)
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
-            .filter(|chunk| chunk.len() == bpc)
+            .filter(|chunk| chunk.len() == chunk_size)
             .collect();
         let mut ascii = String::new();
         dbg!(&as_binary);
         dbg!(&as_binary.len());
         as_binary[..as_binary.len() - 1].iter().for_each(|chunk| {
             let char = match alphabet_track {
-                TrackType::Track1IsoAlphabet => (*chunk).from_track_1_bits(),
+                TrackType::Track1IsoAlphabet => (*chunk).from_track_1_bits(), // Tartteekohan tässä antaa tuo bpc parameetrina? todennäkösesti,
                 TrackType::Track2_3IsoAlpahbet => (*chunk).from_track_2_3_bits(),
             }
             .unwrap();
