@@ -80,11 +80,25 @@ mod tests {
             Ok(())
         }
         #[test]
-        fn test_convert_raw_track_data_to_ascii_track_has_data_track1() -> Result<(), MsrxToolError>
-        {
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_8(
+        ) -> Result<(), MsrxToolError> {
             // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
                 raw: vec![0xC5, 0xB0, 0x78, 0x14, 0x95, 0x4E, 0x3E, 0x2A],
+            };
+
+            assert_eq!(
+                track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 8)?,
+                "%ABC123?"
+            );
+            Ok(())
+        }
+        #[test]
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_7(
+        ) -> Result<(), MsrxToolError> {
+            // data is: "1", bpc is 5
+            let track_data: TrackData = TrackData {
+                raw: vec![0x45, 0x61, 0x62, 0x23, 0x51, 0x52, 0x13, 0x1F, 0x2A],
             };
 
             assert_eq!(
@@ -94,11 +108,59 @@ mod tests {
             Ok(())
         }
         #[test]
-        fn test_convert_raw_track_data_to_ascii_track_has_data_track2() -> Result<(), MsrxToolError>
-        {
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_6(
+        ) -> Result<(), MsrxToolError> {
+            // data is: "1", bpc is 5
+            let track_data: TrackData = TrackData {
+                raw: vec![0x05, 0x21, 0x22, 0x23, 0x11, 0x12, 0x13, 0x1F, 0x2A],
+            };
+
+            assert_eq!(
+                track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 7)?,
+                "%ABC123?"
+            );
+            Ok(())
+        }
+
+        // #[test]
+        // fn test_convert_raw_track_data_to_ascii_track_has_data_track1__bpc_7(
+        // ) -> Result<(), MsrxToolError> {
+        //     // data is: "1", bpc is 5
+        //     let track_data: TrackData = TrackData {
+        //         raw: vec![
+        //             0x2a, 0x51, 0x43, 0x67, 0x13, 0x32, 0x73, 0x0b, 0x2a, 0x6b, 0x1a, 0x46, 0x76,
+        //             0x52, 0x26, 0x16, 0x4f, 0x57, 0x4a, 0x7a, 0x07, 0x2f, 0x0e, 0x62, 0x37, 0x23,
+        //             0x3b, 0x5b, 0x45, 0x25, 0x64, 0x15, 0x54, 0x34, 0x75, 0x0d, 0x4c, 0x04, 0x7c,
+        //             0x01, 0x00, 0x00, 0x00,
+        //         ],
+        //     };
+
+        //     assert_eq!(
+        //         track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 7)?,
+        //         "%ASDFGHJKLQWERTYUIOPZXCVBNM1234567890_"
+        //     );
+        //     Ok(())
+        // }
+        #[test]
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_8(
+        ) -> Result<(), MsrxToolError> {
             // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
                 raw: vec![0x2B, 0x88, 0x49, 0xEA, 0xAF],
+            };
+
+            assert_eq!(
+                track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 8)?,
+                ";12345?"
+            );
+            Ok(())
+        }
+        #[test]
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_6(
+        ) -> Result<(), MsrxToolError> {
+            // data is: "1", bpc is 5
+            let track_data: TrackData = TrackData {
+                raw: vec![0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x1F, 0x1F],
             };
 
             assert_eq!(
@@ -107,5 +169,37 @@ mod tests {
             );
             Ok(())
         }
+        #[test]
+        fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_5(
+        ) -> Result<(), MsrxToolError> {
+            // data is: "1", bpc is 5
+            let track_data: TrackData = TrackData {
+                raw: vec![0x0B, 0x01, 0x02, 0x13, 0x04, 0x15, 0x1F, 0x15],
+            };
+
+            assert_eq!(
+                track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 5)?,
+                ";12345?"
+            );
+            Ok(())
+        }
+        // #[test]
+        // fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_5(
+        // ) -> Result<(), MsrxToolError> {
+        //     // data is: "1", bpc is 5
+        //     let track_data: TrackData = TrackData {
+        //         raw: vec![
+        //             0x1a, 0x1a, 0x01, 0x13, 0x02, 0x1c, 0x0d, 0x15, 0x04, 0x19, 0x08, 0x10, 0x01,
+        //             0x13, 0x6e, 0x02, 0x1c, 0x0d, 0x15, 0x04, 0x19, 0x08, 0x10, 0x1f, 0x04, 0x00,
+        //             0x00, 0x00,
+        //         ],
+        //     };
+
+        //     assert_eq!(
+        //         track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 5)?,
+        //         "`01234567890123456789_"
+        //     );
+        //     Ok(())
+        // }
     }
 }
