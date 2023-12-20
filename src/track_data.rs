@@ -14,7 +14,7 @@ impl TrackData {
     pub fn to_string_with_bpc(
         &self,
         alphabet_track: TrackType,
-        bpc: usize,
+        bpc: u8,
     ) -> Result<String, MsrxToolError> {
         println!("raw: {:?}", &self);
         if self.raw.len() == 0 {
@@ -45,8 +45,8 @@ impl TrackData {
         dbg!(&as_binary.len());
         as_binary[..as_binary.len() - 1].iter().for_each(|chunk| {
             let char = match alphabet_track {
-                TrackType::Track1IsoAlphabet => (*chunk).from_track_1_bits(), // Tartteekohan tässä antaa tuo bpc parameetrina? todennäkösesti,
-                TrackType::Track2_3IsoAlpahbet => (*chunk).from_track_2_3_bits(),
+                TrackType::Track1IsoAlphabet => (*chunk).from_track_1_bits(bpc), // Tartteekohan tässä antaa tuo bpc parameetrina? todennäkösesti,
+                TrackType::Track2_3IsoAlpahbet => (*chunk).from_track_2_3_bits(bpc),
             }
             .unwrap();
 
