@@ -1,5 +1,6 @@
 use crate::command::Command;
 use crate::config::DeviceConfig;
+use crate::data_format::DataFormat;
 use crate::msrx_tool_error::MsrxToolError;
 use crate::raw_data::RawData;
 use crate::raw_tracks_data::RawTracksData;
@@ -259,7 +260,7 @@ impl MsrxDevice {
         Ok(raw_device_data.to_string())
     }
 
-    pub fn read_tracks(&mut self) -> Result<RawTracksData, MsrxToolError> {
+    pub fn read_tracks(&mut self, format: &DataFormat) -> Result<RawTracksData, MsrxToolError> {
         self.device_handle.send_device_control(
             self.config.control_endpoint,
             &Command::SetReadModeOn.packets(),

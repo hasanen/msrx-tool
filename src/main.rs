@@ -13,6 +13,8 @@ mod track_data;
 mod track_status;
 use clap::Parser;
 use msrx::MsrxDevice;
+mod data_format;
+use data_format::DataFormat;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]
@@ -21,6 +23,10 @@ struct Args {
     /// Command to use: read
     #[clap(subcommand)]
     command: Option<CliCommand>,
+
+    #[clap(short, long, default_value = "raw")]
+    /// Data format to use: iso, raw
+    data_format: Option<DataFormat>,
 }
 #[derive(Parser, Debug)]
 enum CliCommand {
@@ -50,7 +56,7 @@ fn main() {
 
     match &args.command {
         Some(CliCommand::Read) => {
-            let _result = msrx_device.read_tracks().unwrap();
+            let _result = msrx_device.read_tracks(&args.data_format.unwrap()).unwrap();
         }
 
         Some(CliCommand::Firmware) => {

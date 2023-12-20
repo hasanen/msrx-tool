@@ -1,3 +1,4 @@
+use crate::track_data::TrackType;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -14,8 +15,10 @@ pub enum MsrxToolError {
     BitConversionError,
     #[error("device not found")]
     DeviceNotFound,
-    #[error("invalid bits per character")]
+    #[error("invalid bits  per character for track")]
     InvalidBitsPerCharacter,
+    #[error("unsupported data format")]
+    UnsupportedDataFormat,
     #[error("unknown conversion error")]
     Unknown,
 }
