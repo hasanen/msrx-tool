@@ -25,15 +25,13 @@ impl TrackData {
             binary.push_str(&format!("{:08b}", byte).reverse());
         }
 
-        let chunk_size = if bpc > 6 { 7 } else { 6 };
+        let chunk_size = match bpc {
+            8 => 7,
+            7 => 8,
+            _ => return Err(MsrxToolError::InvalidBitsPerCharacter),
+        };
         dbg!(chunk_size);
 
-        dbg!(&binary
-            .as_bytes()
-            .chunks(chunk_size)
-            .map(|chunk| std::str::from_utf8(chunk).unwrap())
-            .filter(|chunk| chunk.len() == chunk_size)
-            .collect::<Vec<&str>>());
         let as_binary: Vec<&str> = binary
             .as_bytes()
             .chunks(chunk_size)

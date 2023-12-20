@@ -18,7 +18,8 @@ impl<T: AsRef<str>> ToChar for T {
         dbg!("--------------------");
         dbg!(&self.as_ref());
         let mut as_num = if bits_per_character > 6 {
-            usize::from_str_radix(&self.as_ref().reverse()[1..], 2).unwrap()
+            let start_index = (self.as_ref().len() - 6) as usize;
+            usize::from_str_radix(&self.as_ref().reverse()[start_index..], 2).unwrap()
         } else {
             usize::from_str_radix(&self.as_ref().reverse(), 2).unwrap()
         };
@@ -70,6 +71,7 @@ mod tests {
 
     #[test]
     fn test_from_track_1_bits_per_character_7_to_char() -> Result<(), MsrxToolError> {
+        assert_eq!("10100010".to_string().from_track_1_bits(7)?, '%');
         assert_eq!("1010001".to_string().from_track_1_bits(7)?, '%');
         assert_eq!("1000011".to_string().from_track_1_bits(7)?, 'A');
         assert_eq!("0100011".to_string().from_track_1_bits(7)?, 'B');

@@ -14,6 +14,8 @@ pub enum MsrxToolError {
     BitConversionError,
     #[error("device not found")]
     DeviceNotFound,
+    #[error("invalid bits per character")]
+    InvalidBitsPerCharacter,
     #[error("unknown conversion error")]
     Unknown,
 }
