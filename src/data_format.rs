@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
 pub enum DataFormat {
-    ISO,
-    RAW,
+    Iso,
+    Raw,
 }
 
 impl FromStr for DataFormat {
@@ -12,8 +12,7 @@ impl FromStr for DataFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "iso" => Ok(DataFormat::ISO),
-            "raw" => Ok(DataFormat::RAW),
+            "iso" => Ok(DataFormat::Iso),
             _ => Err(MsrxToolError::UnsupportedDataFormat),
         }
     }

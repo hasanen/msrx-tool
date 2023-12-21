@@ -19,6 +19,8 @@ pub enum MsrxToolError {
     InvalidBitsPerCharacter,
     #[error("unsupported data format")]
     UnsupportedDataFormat,
+    #[error("format is not supported yet when reading tracks")]
+    UnsupportedDataFormatForReading,
     #[error("unknown conversion error")]
     Unknown,
 }

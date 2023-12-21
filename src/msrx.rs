@@ -1,17 +1,24 @@
 use crate::command::Command;
 use crate::config::DeviceConfig;
 use crate::data_format::DataFormat;
+use crate::device_data::DeviceData;
 use crate::msrx_tool_error::MsrxToolError;
 use crate::raw_data::RawData;
-use crate::raw_tracks_data::RawTracksData;
 use crate::to_hex::ToHex;
+use crate::tracks_data::TracksData;
 use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
-use std::time::Duration;
+use std::{os::macos::raw, time::Duration};
 
 pub trait MSRX {
     fn reset(&mut self, endpoint: u8) -> Result<bool, MsrxToolError>;
-    fn read_tracks(&mut self, endpoint: u8) -> String;
+    // fn read_tracks(&mut self, endpoint: u8) -> String;
     fn read_device_interrupt(
+        &mut self,
+        endpoint: u8,
+        format: &DataFormat,
+        timeout: u64,
+    ) -> Result<DeviceData, MsrxToolError>;
+    fn read_device_raw_interrupt(
         &mut self,
         endpoint: u8,
         timeout: u64,
@@ -28,14 +35,26 @@ impl MSRX for DeviceHandle<Context> {
         let result = self.read_success(endpoint)?;
         Ok(result)
     }
-    fn read_tracks(&mut self, endpoint: u8) -> String {
-        let raw_data = self.read_device_interrupt(endpoint, 1).unwrap();
-        let raw_track_data: RawTracksData = raw_data.try_into().unwrap();
-        dbg!(raw_track_data);
-        //
-        return "".to_string();
-    }
+    // fn read_tracks(&mut self, endpoint: u8) -> String {
+    //     let raw_data = self.read_device_interrupt(endpoint, 1).unwrap();
+    //     let raw_track_data: TracksData = raw_data.try_into().unwrap();
+    //     dbg!(raw_track_data);
+    //     //
+    //     return "".to_string();
+    // }
     fn read_device_interrupt(
+        &mut self,
+        endpoint: u8,
+        format: &DataFormat,
+        timeout: u64,
+    ) -> Result<DeviceData, MsrxToolError> {
+        let mut raw_data: [u8; 64] = [0; 64];
+        let _ = self.read_interrupt(0x81, &mut raw_data, Duration::from_secs(timeout))?;
+
+        DeviceData::from_interrupt_data(raw_data, &format)
+    }
+
+    fn read_device_raw_interrupt(
         &mut self,
         endpoint: u8,
         timeout: u64,
@@ -93,7 +112,7 @@ impl MSRX for DeviceHandle<Context> {
     }
 
     fn read_success(&mut self, endpoint: u8) -> Result<bool, MsrxToolError> {
-        let raw_device_data = self.read_device_interrupt(endpoint, 1)?;
+        let raw_device_data = self.read_device_raw_interrupt(endpoint, 1)?;
 
         Ok(raw_device_data.successful_read())
     }
@@ -179,13 +198,13 @@ impl MsrxDevice {
         )?;
         let result = self
             .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
 
-        if result.raw_data[1] == 0x1b
-            && result.raw_data[2] == 0x30
-            && result.raw_data[3] == self.config.track1.bpc
-            && result.raw_data[4] == self.config.track2.bpc
-            && result.raw_data[5] == self.config.track3.bpc
+        if result.data[1] == 0x1b
+            && result.data[2] == 0x30
+            && result.data[3] == self.config.track1.bpc
+            && result.data[4] == self.config.track2.bpc
+            && result.data[5] == self.config.track3.bpc
         {
             Ok(())
         } else {
@@ -203,9 +222,9 @@ impl MsrxDevice {
         }
         let result = self
             .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
 
-        if result.raw_data[1] == 0x1b && result.raw_data[2] == 0x30 {
+        if result.data[1] == 0x1b && result.data[2] == 0x30 {
             Ok(())
         } else {
             Err(MsrxToolError::Unknown)
@@ -227,7 +246,7 @@ impl MsrxDevice {
             )?;
             let result = self
                 .device_handle
-                .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+                .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
 
             if result.did_failed() {
                 return Err(MsrxToolError::ErrorSettingBPI(index + 1));
@@ -244,7 +263,7 @@ impl MsrxDevice {
         )?;
         let result = self
             .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
         if result.did_failed() {
             return Err(MsrxToolError::ErrorSettingLeadingZeros);
         }
@@ -256,30 +275,40 @@ impl MsrxDevice {
             .run_command(self.config.control_endpoint, &Command::GetDeviceModel)?;
         let raw_device_data = self
             .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
         Ok(raw_device_data.to_string())
     }
 
-    pub fn read_tracks(&mut self, format: &DataFormat) -> Result<RawTracksData, MsrxToolError> {
-        self.device_handle.send_device_control(
-            self.config.control_endpoint,
-            &Command::SetReadModeOn.packets(),
-        )?;
-        let raw_data = self
-            .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 10)?;
-        dbg!(&raw_data.raw_data.to_hex());
-        let mut is_last_packet = raw_data.is_last_packet;
-        while !is_last_packet {
-            let raw_data = self
-                .device_handle
-                .read_device_interrupt(self.config.interrupt_endpoint, 10)?;
-            dbg!(&raw_data.raw_data.to_hex());
-            is_last_packet = raw_data.is_last_packet;
-        }
-        let raw_track_data: RawTracksData = raw_data.try_into().unwrap();
+    pub fn read_tracks(&mut self, format: &DataFormat) -> Result<TracksData, MsrxToolError> {
+        let read_command = match format {
+            DataFormat::Iso => Command::SetReadModeOnFormatISO,
+            DataFormat::Raw => return Err(MsrxToolError::UnsupportedDataFormatForReading),
+        };
 
-        Ok(raw_track_data)
+        let mut raw_datas = vec![];
+        self.device_handle
+            .send_device_control(self.config.control_endpoint, &read_command.packets())?;
+        let device_data = self.device_handle.read_device_interrupt(
+            self.config.interrupt_endpoint,
+            &format,
+            10,
+        )?;
+
+        raw_datas.push(device_data.clone());
+        let mut is_last_packet = device_data.raw.is_last_packet;
+        while !is_last_packet {
+            let raw_data = self.device_handle.read_device_interrupt(
+                self.config.interrupt_endpoint,
+                &format,
+                10,
+            )?;
+            dbg!(&raw_data.raw.data.to_hex());
+            raw_datas.push(raw_data.clone());
+            is_last_packet = raw_data.raw.is_last_packet;
+        }
+        let mut tracks_data: TracksData = device_data.try_into().unwrap();
+
+        Ok(tracks_data)
     }
 
     pub fn get_firmware_version(&mut self) -> Result<String, MsrxToolError> {
@@ -287,7 +316,7 @@ impl MsrxDevice {
             .run_command(self.config.control_endpoint, &Command::GetFirmwareVersion)?;
         let raw_device_data = self
             .device_handle
-            .read_device_interrupt(self.config.interrupt_endpoint, 1)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
         let firmware = raw_device_data.to_string();
         Ok(firmware)
     }

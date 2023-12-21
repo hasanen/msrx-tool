@@ -4,26 +4,8 @@ use crate::msrx_tool_error::MsrxToolError;
 pub struct RawData {
     pub is_header: bool,
     pub is_last_packet: bool,
-    pub raw_data: [u8; 64],
+    pub data: [u8; 64],
 }
-
-impl RawData {
-    pub fn stripped_data(&self) -> Vec<u8> {
-        let length = self.raw_data[0] & !(0x80 | 0x40);
-        self.raw_data[2..1 + length as usize].to_vec()
-    }
-
-    pub fn did_failed(&self) -> bool {
-        self.raw_data[1] == 0x1b && self.raw_data[2] == 0x31
-    }
-
-    pub fn successful_read(&self) -> bool {
-        // First byte is the length of the data
-        // so skipping it
-        self.raw_data[1] == 0x1b && self.raw_data[2] == 0x30
-    }
-}
-
 impl TryFrom<[u8; 64]> for RawData {
     type Error = MsrxToolError;
 
@@ -34,8 +16,25 @@ impl TryFrom<[u8; 64]> for RawData {
         Ok(RawData {
             is_header,
             is_last_packet,
-            raw_data,
+            data: raw_data,
         })
+    }
+}
+
+impl RawData {
+    pub fn stripped_data(&self) -> Vec<u8> {
+        let length = self.data[0] & !(0x80 | 0x40);
+        self.data[2..1 + length as usize].to_vec()
+    }
+
+    pub fn did_failed(&self) -> bool {
+        self.data[1] == 0x1b && self.data[2] == 0x31
+    }
+
+    pub fn successful_read(&self) -> bool {
+        // First byte is the length of the data
+        // so skipping it
+        self.data[1] == 0x1b && self.data[2] == 0x30
     }
 }
 impl std::fmt::Display for RawData {

@@ -1,4 +1,6 @@
 use crate::char_bits_conversion::to_char::ToChar;
+use crate::data_format::DataFormat;
+use crate::device_data::DeviceData;
 use crate::msrx_tool_error::MsrxToolError;
 use crate::reverse_string::ReverseString;
 use crate::to_hex::ToHex;
@@ -12,20 +14,24 @@ pub enum TrackType {
 
 #[derive(Debug)]
 pub struct TrackData {
-    pub raw: Vec<u8>,
+    pub data: Vec<u8>,
+    pub format: DataFormat,
 }
 impl TrackData {
+    pub fn to_string(&self) -> Result<String, MsrxToolError> {
+        Ok("missing implementation".to_string())
+    }
     pub fn to_string_with_bpc(
         &self,
         alphabet_track: TrackType,
         bpc: u8,
     ) -> Result<String, MsrxToolError> {
         println!("raw: {:?}", &self);
-        if self.raw.len() == 0 {
+        if self.data.len() == 0 {
             return Ok(String::new());
         }
         let mut binary = String::new();
-        for byte in &self.raw {
+        for byte in &self.data {
             binary.push_str(&format!("{:08b}", byte).reverse());
         }
 
@@ -40,7 +46,7 @@ impl TrackData {
         };
 
         dbg!(chunk_size);
-        dbg!(&self.raw.to_hex());
+        dbg!(&self.data.to_hex());
 
         let as_binary: Vec<&str> = binary
             .as_bytes()
@@ -65,13 +71,19 @@ impl TrackData {
         Ok(ascii)
     }
 }
-impl TryFrom<Vec<u8>> for TrackData {
-    type Error = MsrxToolError;
 
-    fn try_from(raw: Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(TrackData { raw })
+impl std::fmt::Display for TrackData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.data))
     }
 }
+// impl TryFrom<Vec<u8>> for TrackData {
+//     type Error = MsrxToolError;
+
+//     fn try_from(raw: Vec<u8>) -> Result<Self, Self::Error> {
+//         Ok(TrackData { raw })
+//     }
+// }
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,7 +94,10 @@ mod tests {
 
         #[test]
         fn test_convert_raw_track_data_to_ascii_emptry_track() -> Result<(), MsrxToolError> {
-            let track_data: TrackData = TrackData { raw: vec![] };
+            let track_data: TrackData = TrackData {
+                data: vec![],
+                format: DataFormat::Raw,
+            };
 
             assert_eq!(
                 track_data.to_string_with_bpc(TrackType::Track1IsoAlphabet, 7)?,
@@ -93,9 +108,9 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_8(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0xC5, 0xB0, 0x78, 0x14, 0x95, 0x4E, 0x3E, 0x2A],
+                data: vec![0xC5, 0xB0, 0x78, 0x14, 0x95, 0x4E, 0x3E, 0x2A],
+                format: DataFormat::Raw,
             };
 
             assert_eq!(
@@ -105,8 +120,8 @@ mod tests {
             Ok(())
         }
 
-        // written with the windows software
-        // [src/track_data.rs:43] &self.raw.to_hex() = "51 43 23 62 45 25 64 7c 2a 00 00"
+        // written with the windows software, UserType (7-5-5)
+        // [src/track_data.rs:43] &self.bytes().to_hex() = "51 43 23 62 45 25 64 7c 2a 00 00"
         // [src/track_data.rs:53] &as_binary = [
         //     "1000101",
         //     "1100001",
@@ -123,11 +138,11 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_7_from_device(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![
+                data: vec![
                     0x51, 0x43, 0x23, 0x62, 0x45, 0x25, 0x64, 0x7c, 0x2a, 0x00, 0x00,
                 ],
+                format: DataFormat::Raw,
             };
 
             assert_eq!(
@@ -138,7 +153,7 @@ mod tests {
         }
 
         // taken from the manual
-        // [src/track_data.rs:43] &self.raw.to_hex() = "45 61 62 23 51 52 13 1f 2a"
+        // [src/track_data.rs:43] &self.bytes().to_hex() = "45 61 62 23 51 52 13 1f 2a"
         // [src/track_data.rs:53] &as_binary = [
         //     "1010001",
         //     "1000011",
@@ -153,9 +168,9 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_7_manual(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x45, 0x61, 0x62, 0x23, 0x51, 0x52, 0x13, 0x1F, 0x2A],
+                data: vec![0x45, 0x61, 0x62, 0x23, 0x51, 0x52, 0x13, 0x1F, 0x2A],
+                format: DataFormat::Raw,
             };
 
             assert_eq!(
@@ -167,9 +182,9 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track1_bpc_6(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x05, 0x21, 0x22, 0x23, 0x11, 0x12, 0x13, 0x1F, 0x2A],
+                data: vec![0x05, 0x21, 0x22, 0x23, 0x11, 0x12, 0x13, 0x1F, 0x2A],
+                format: DataFormat::Raw,
             };
 
             assert_eq!(
@@ -201,11 +216,10 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_8(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x2B, 0x88, 0x49, 0xEA, 0xAF],
+                data: vec![0x2B, 0x88, 0x49, 0xEA, 0xAF],
+                format: DataFormat::Raw,
             };
-
             assert_eq!(
                 track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 8)?,
                 ";12345?"
@@ -215,11 +229,10 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_6(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x1F, 0x1F],
+                data: vec![0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x1F, 0x1F],
+                format: DataFormat::Raw,
             };
-
             // TODO: check what is the correct value for ";" in hex, as the manual shows same value for the ";" and "1"
             // assert_eq!(
             //     track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 6)?,
@@ -235,11 +248,10 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_5_from_device(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x1a, 0x10, 0x08, 0x19, 0x04, 0x15, 0x1f, 0x15, 0x00, 0x00],
+                data: vec![0x1a, 0x10, 0x08, 0x19, 0x04, 0x15, 0x1f, 0x15, 0x00, 0x00],
+                format: DataFormat::Raw,
             };
-
             assert_eq!(
                 track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 5)?,
                 ";12345?"
@@ -250,11 +262,10 @@ mod tests {
         #[test]
         fn test_convert_raw_track_data_to_ascii_track_has_data_track2_bpc_5_manual(
         ) -> Result<(), MsrxToolError> {
-            // data is: "1", bpc is 5
             let track_data: TrackData = TrackData {
-                raw: vec![0x0B, 0x01, 0x02, 0x13, 0x04, 0x15, 0x1F, 0x15],
+                data: vec![0x0B, 0x01, 0x02, 0x13, 0x04, 0x15, 0x1F, 0x15],
+                format: DataFormat::Raw,
             };
-
             assert_eq!(
                 track_data.to_string_with_bpc(TrackType::Track2_3IsoAlpahbet, 5)?,
                 ";12345?"

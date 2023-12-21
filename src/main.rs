@@ -3,18 +3,19 @@ use std::process;
 mod char_bits_conversion;
 mod command;
 mod config;
+mod device_data;
 mod msrx;
 mod msrx_tool_error;
-mod raw_data;
-mod raw_tracks_data;
 mod reverse_string;
 mod to_hex;
 mod track_data;
 mod track_status;
+mod tracks_data;
 use clap::Parser;
 use msrx::MsrxDevice;
 mod data_format;
 use data_format::DataFormat;
+mod raw_data;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]
@@ -24,7 +25,7 @@ struct Args {
     #[clap(subcommand)]
     command: Option<CliCommand>,
 
-    #[clap(short, long, default_value = "raw")]
+    #[clap(short, long, default_value = "iso")]
     /// Data format to use: iso, raw
     data_format: Option<DataFormat>,
 }
