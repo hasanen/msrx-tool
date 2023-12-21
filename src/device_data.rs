@@ -1,10 +1,10 @@
 use crate::data_format::DataFormat;
 use crate::msrx_tool_error::MsrxToolError;
-use crate::raw_data::RawData;
+use crate::original_device_data::OriginalDeviceData;
 
 #[derive(Debug, Copy, Clone)]
 pub struct DeviceData {
-    pub raw: RawData,
+    pub raw: OriginalDeviceData,
     pub format: DataFormat,
 }
 
@@ -17,7 +17,7 @@ impl DeviceData {
         let is_last_packet = data[0] & 0x40 != 0;
 
         Ok(DeviceData {
-            raw: RawData {
+            raw: OriginalDeviceData {
                 is_header,
                 is_last_packet,
                 data,

@@ -15,7 +15,8 @@ use clap::Parser;
 use msrx::MsrxDevice;
 mod data_format;
 use data_format::DataFormat;
-mod raw_data;
+mod iso_data;
+mod original_device_data;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]

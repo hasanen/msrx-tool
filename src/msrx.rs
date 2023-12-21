@@ -2,8 +2,9 @@ use crate::command::Command;
 use crate::config::DeviceConfig;
 use crate::data_format::DataFormat;
 use crate::device_data::DeviceData;
+use crate::iso_data::IsoData;
 use crate::msrx_tool_error::MsrxToolError;
-use crate::raw_data::RawData;
+use crate::original_device_data::OriginalDeviceData;
 use crate::to_hex::ToHex;
 use crate::tracks_data::TracksData;
 use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
@@ -22,7 +23,7 @@ pub trait MSRX {
         &mut self,
         endpoint: u8,
         timeout: u64,
-    ) -> Result<RawData, MsrxToolError>;
+    ) -> Result<OriginalDeviceData, MsrxToolError>;
     fn send_device_control(&mut self, endpoint: u8, packets: &Vec<u8>)
         -> Result<(), MsrxToolError>;
     fn run_command(&mut self, endpoint: u8, command: &Command) -> Result<bool, MsrxToolError>;
@@ -49,7 +50,7 @@ impl MSRX for DeviceHandle<Context> {
         timeout: u64,
     ) -> Result<DeviceData, MsrxToolError> {
         let mut raw_data: [u8; 64] = [0; 64];
-        let _ = self.read_interrupt(0x81, &mut raw_data, Duration::from_secs(timeout))?;
+        let _ = self.read_interrupt(endpoint, &mut raw_data, Duration::from_secs(timeout))?;
 
         DeviceData::from_interrupt_data(raw_data, &format)
     }
@@ -58,9 +59,9 @@ impl MSRX for DeviceHandle<Context> {
         &mut self,
         endpoint: u8,
         timeout: u64,
-    ) -> Result<RawData, MsrxToolError> {
+    ) -> Result<OriginalDeviceData, MsrxToolError> {
         let mut raw_data: [u8; 64] = [0; 64];
-        let _ = self.read_interrupt(0x81, &mut raw_data, Duration::from_secs(timeout))?;
+        let _ = self.read_interrupt(endpoint, &mut raw_data, Duration::from_secs(timeout))?;
 
         raw_data.try_into()
     }
@@ -285,28 +286,20 @@ impl MsrxDevice {
             DataFormat::Raw => return Err(MsrxToolError::UnsupportedDataFormatForReading),
         };
 
-        let mut raw_datas = vec![];
         self.device_handle
             .send_device_control(self.config.control_endpoint, &read_command.packets())?;
-        let device_data = self.device_handle.read_device_interrupt(
-            self.config.interrupt_endpoint,
-            &format,
-            10,
-        )?;
 
-        raw_datas.push(device_data.clone());
-        let mut is_last_packet = device_data.raw.is_last_packet;
-        while !is_last_packet {
-            let raw_data = self.device_handle.read_device_interrupt(
-                self.config.interrupt_endpoint,
-                &format,
-                10,
-            )?;
-            dbg!(&raw_data.raw.data.to_hex());
-            raw_datas.push(raw_data.clone());
-            is_last_packet = raw_data.raw.is_last_packet;
-        }
-        let mut tracks_data: TracksData = device_data.try_into().unwrap();
+        let raw_datas = self.read_interrupts()?;
+        dbg!(&raw_datas);
+
+        let tracks_data = match format {
+            DataFormat::Iso => raw_datas
+                .iter()
+                .map(|rd| IsoData { raw: rd.clone() })
+                .collect::<Vec<IsoData>>()
+                .try_into()?,
+            DataFormat::Raw => return Err(MsrxToolError::UnsupportedDataFormatForReading),
+        };
 
         Ok(tracks_data)
     }
@@ -319,5 +312,26 @@ impl MsrxDevice {
             .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
         let firmware = raw_device_data.to_string();
         Ok(firmware)
+    }
+
+    fn read_interrupts(&self) -> Result<Vec<OriginalDeviceData>, MsrxToolError> {
+        let mut raw_datas = vec![];
+
+        let device_data: OriginalDeviceData = self
+            .device_handle
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 10)?;
+
+        raw_datas.push(device_data.clone());
+        let mut is_last_packet = device_data.is_last_packet;
+        while !is_last_packet {
+            let raw_data = self
+                .device_handle
+                .read_device_raw_interrupt(self.config.interrupt_endpoint, 10)?;
+            dbg!(&raw_data.data.to_hex());
+            raw_datas.push(raw_data.clone());
+            is_last_packet = raw_data.is_last_packet;
+        }
+
+        Ok(raw_datas)
     }
 }
