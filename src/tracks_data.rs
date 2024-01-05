@@ -27,7 +27,6 @@ impl TryFrom<Vec<IsoData>> for TracksData {
                 combined_raw_data.extend_from_slice(&raw_device_data.raw.data[1..]);
             }
         }
-        dbg!(&combined_raw_data.to_hex());
         if combined_raw_data[1] != 0x1b || combined_raw_data[2] != 0x73 {
             return Err(MsrxToolError::RawDataNotCardData);
         }

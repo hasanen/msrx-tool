@@ -8,7 +8,7 @@ use crate::original_device_data::OriginalDeviceData;
 use crate::to_hex::ToHex;
 use crate::tracks_data::TracksData;
 use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
-use std::{os::macos::raw, time::Duration};
+use std::time::Duration;
 
 pub trait MSRX {
     fn reset(&mut self, endpoint: u8) -> Result<bool, MsrxToolError>;
@@ -290,11 +290,6 @@ impl MsrxDevice {
             .send_device_control(self.config.control_endpoint, &read_command.packets())?;
 
         let raw_datas = self.read_interrupts()?;
-        dbg!(&raw_datas
-            .iter()
-            .map(|rd| rd.data.to_hex())
-            .collect::<Vec<String>>());
-        dbg!(&raw_datas);
 
         let tracks_data = match format {
             DataFormat::Iso => raw_datas
@@ -331,7 +326,7 @@ impl MsrxDevice {
             let raw_data = self
                 .device_handle
                 .read_device_raw_interrupt(self.config.interrupt_endpoint, 10)?;
-            dbg!(&raw_data.data.to_hex());
+
             raw_datas.push(raw_data.clone());
             is_last_packet = raw_data.is_last_packet;
         }
