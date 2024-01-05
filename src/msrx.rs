@@ -290,6 +290,10 @@ impl MsrxDevice {
             .send_device_control(self.config.control_endpoint, &read_command.packets())?;
 
         let raw_datas = self.read_interrupts()?;
+        dbg!(&raw_datas
+            .iter()
+            .map(|rd| rd.data.to_hex())
+            .collect::<Vec<String>>());
         dbg!(&raw_datas);
 
         let tracks_data = match format {
@@ -314,7 +318,7 @@ impl MsrxDevice {
         Ok(firmware)
     }
 
-    fn read_interrupts(&self) -> Result<Vec<OriginalDeviceData>, MsrxToolError> {
+    fn read_interrupts(&mut self) -> Result<Vec<OriginalDeviceData>, MsrxToolError> {
         let mut raw_datas = vec![];
 
         let device_data: OriginalDeviceData = self
