@@ -1,4 +1,5 @@
 use crate::msrx_tool_error::MsrxToolError;
+use crate::tracks_data::TracksData;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -20,21 +21,24 @@ impl FromStr for OutputFormat {
     }
 }
 
-impl Output {
-    pub fn format(&self, format: OutputFormat, separator: Option<char>) -> String {
-        match format {
-            OutputFormat::Json => self.format_json(),
-            OutputFormat::Combined => self.format_combined(separator),
-        }
+pub fn format(tracks_data: &TracksData, format: &OutputFormat, separator: &Option<char>) -> String {
+    match format {
+        OutputFormat::Json => format_json(tracks_data),
+        OutputFormat::Combined => format_combined(tracks_data, separator),
     }
+}
 
-    fn format_json(&self) -> String {
-        todo!("Implement JSON output")
-    }
+fn format_json(tracks_data: &TracksData) -> String {
+    todo!("Implement JSON output")
+}
 
-    fn format_combined(&self, separator: Option<char>) -> String {
-        let separator = separator.unwrap_or('_');
-        let strings = vec![];
-        if 
-    }
+fn format_combined(tracks_data: &TracksData, separator: &Option<char>) -> String {
+    let separator = separator.unwrap_or('_');
+    let strings: Vec<String> = vec![
+        tracks_data.track1.to_string().unwrap(),
+        tracks_data.track2.to_string().unwrap(),
+        tracks_data.track3.to_string().unwrap(),
+    ];
+
+    strings.join(&separator.to_string())
 }

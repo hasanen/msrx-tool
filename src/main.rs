@@ -65,17 +65,15 @@ fn main() {
 
     match &args.command {
         Some(CliCommand::Read) => {
-            dbg!(args.output_format.unwrap());
-            dbg!(args.output_format_separator.unwrap());
             let result = msrx_device.read_tracks(&args.data_format.unwrap()).unwrap();
-            // OutputFormat::dbg!(result.track1.to_string());
-            // dbg!(result.track2.to_string());
-            // dbg!(result.track3.to_string());
-            println!(&Output::format(
-                &result,
-                &args.output_format.unwrap(),
-                &args.output_format_separator.unwrap(),
-            ));
+            println!(
+                "{}",
+                output::format(
+                    &result,
+                    &args.output_format.unwrap(),
+                    &args.output_format_separator,
+                )
+            );
         }
 
         Some(CliCommand::Firmware) => {
@@ -89,13 +87,16 @@ fn main() {
         }
         None => todo!(),
     }
-    match msrx_device.device_handle.reset() {
-        Ok(_) => {}
-        Err(e) => {
-            println!("Error: {}", e);
-            process::exit(1);
-        }
-    }
+
+    println!("Resetting device");
+    // msrx_device.
+    // match msrx_device.device_handle.reset() {
+    //     Ok(_) => {}
+    //     Err(e) => {
+    //         println!("Error: {}", e);
+    //         process::exit(1);
+    //     }
+    // }
 
     // let _ = msrx_device.release_interface();
     // let _ = msrx_device.attach_kernel_driver();
