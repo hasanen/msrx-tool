@@ -15,8 +15,10 @@ use clap::Parser;
 use msrx::MsrxDevice;
 mod data_format;
 use data_format::DataFormat;
+mod input;
 mod iso_data;
 mod original_device_data;
+use input::InputFormat;
 mod output;
 use output::OutputFormat;
 
@@ -34,14 +36,17 @@ struct Args {
     /// Output format: json or stdout
     output_format: Option<OutputFormat>,
     #[clap(long, default_value = "_")]
-    /// Output format separator when using combined output format
-    output_format_separator: Option<char>,
+    /// Input/output format separator when using combined output format
+    format_separator: Option<char>,
 }
 #[derive(Parser, Debug)]
 enum CliCommand {
     #[clap(name = "read")]
     /// Read all tracks
     Read,
+    #[clap(name = "write")]
+    /// Write content to tracks. Use
+    Write,
     #[clap(name = "fw")]
     /// Print firmware of the device
     Firmware,
@@ -71,9 +76,16 @@ fn main() {
                 output::format(
                     &result,
                     &args.output_format.unwrap(),
-                    &args.output_format_separator,
+                    &args.format_separator,
                 )
             );
+        }
+        Some(CliCommand::Write) => {
+            let data =
+                input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
+
+            let tracks_data: TracksData = data.try_into().unwrap();
+            dbg!(tracks_data);
         }
 
         Some(CliCommand::Firmware) => {

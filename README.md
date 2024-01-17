@@ -14,7 +14,7 @@ Some preliminary todo list
   - [x] local build works when cloning the repo
   - [ ] at least make command that builds the bin
   - [ ] CI/CD pipeline setup?
-
+-  [ ] [OPTIONAL] Combine input and output formats to on "Format" enum and implement `to` and `from` functions
 ## Compile for RPI
 
 Add target with rustup
