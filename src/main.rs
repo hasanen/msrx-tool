@@ -88,16 +88,11 @@ fn main() {
         None => todo!(),
     }
 
-    println!("Resetting device");
-    // msrx_device.
-    // match msrx_device.device_handle.reset() {
-    //     Ok(_) => {}
-    //     Err(e) => {
-    //         println!("Error: {}", e);
-    //         process::exit(1);
-    //     }
-    // }
-
-    // let _ = msrx_device.release_interface();
-    // let _ = msrx_device.attach_kernel_driver();
+    match msrx_device.device_handle.reset() {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error: {}", e);
+            process::exit(1);
+        }
+    }
 }
