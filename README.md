@@ -30,3 +30,17 @@ Install arm-linux-gnueabihf-binutils
 
     brew install arm-linux-gnueabihf-binutils # on macOs
     sudo apt-get install gcc-aarch64-linux-gnu # on Debian based linux
+
+## Linux udevrules
+
+1. Save following content to `/etc/udev/rules.d/99-my-usb-permissions.rules`
+
+```text
+SUBSYSTEM=="usb", ATTR{idVendor}=="0801", ATTR{idProduct}=="0003", MODE="0666"
+```
+
+2. Relaod rules
+
+```bash
+sudo udevadm control --reload-rules
+```
