@@ -1,9 +1,6 @@
 use crate::data_format::DataFormat;
-use crate::device_data::DeviceData;
 use crate::iso_data::IsoData;
 use crate::msrx_tool_error::MsrxToolError;
-use crate::original_device_data::OriginalDeviceData;
-use crate::to_hex::ToHex;
 use crate::track_data::TrackData;
 use crate::track_status::TrackStatus;
 
@@ -83,13 +80,26 @@ impl TryFrom<Vec<IsoData>> for TracksData {
     }
 }
 
-// impl TryFrom<DeviceData> for TracksData {
-//     type Error = MsrxToolError;
-
-//     fn try_from(raw_device_data: DeviceData) -> Result<Self, Self::Error> {
-//         vec![raw_device_data].try_into()
-//     }
-// }
+impl TracksData {
+    pub fn from_str(text: &str, separator: &char) -> Result<Self, MsrxToolError> {
+        let string = String::new();
+        Ok(TracksData {
+            track1: TrackData {
+                data: string.clone().into_bytes(),
+                format: DataFormat::Iso,
+            },
+            track2: TrackData {
+                data: string.clone().into_bytes(),
+                format: DataFormat::Iso,
+            },
+            track3: TrackData {
+                data: string.clone().into_bytes(),
+                format: DataFormat::Iso,
+            },
+            status: TrackStatus::ParsedFromInput,
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -101,7 +111,7 @@ mod tests {
     //     #[test]
     //     fn test_convert_raw_data_to_raw_track_data_status_ok() -> Result<(), MsrxToolError> {
     //         // Track 1 and Track 2 doesn't contain ant data, Track  3 data is: "1"
-    //         let data = *b"\xd3\x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+    //         let data = *b"\xd3x1b\x73\x1b\x01\x00\x1b\x02\x00\x1b\x03\x04\xaf\xc2\xb0\x00\x3f\x1c\x1b\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
     //         let raw_data: DeviceData = DeviceData {
     //             raw: data.try_into()?,
     //             format: DataFormat::Iso,
@@ -228,6 +238,49 @@ mod tests {
             );
             assert_eq!(raw_track_data.track3.to_string()?, ";12345?");
 
+            Ok(())
+        }
+    }
+
+    mod from_str {
+        use super::*;
+
+        #[test]
+        fn test_parse_text() -> Result<(), MsrxToolError> {
+            let separator = '_';
+
+            let data_to_parse = vec![
+                "%ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMN?",
+                ";0987654321098765432109876543210987654?",
+                ";12345?",
+            ]
+            .join(&separator.to_string());
+
+            dbg!(&data_to_parse);
+
+            let result = TracksData::from_str(&data_to_parse, &separator)?;
+
+            let expected_track1 = vec![
+                0xbf, 0x1b, 0x73, 0x1b, 0x01, 0x25, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+                0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x31,
+                0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x41, 0x42, 0x43, 0x44, 0x45,
+                0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53,
+                0x54, 0x55, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36,
+            ];
+            let expected_track2 = vec![
+                0x3f, 0x37, 0x38, 0x39, 0x30, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49,
+                0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x3f, 0x1b, 0x02, 0x3b, 0x30, 0x39, 0x38, 0x37, 0x36,
+                0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32,
+                0x31, 0x30, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x39, 0x38,
+                0x37, 0x36, 0x35, 0x34, 0x3f, 0x1b, 0x03, 0x3b,
+            ];
+            let expected_track3 = vec![
+                0x4a, 0x31, 0x32, 0x33, 0x34, 0x35, 0x3f, 0x3f, 0x1c, 0x1b, 0x30,
+            ];
+
+            assert_eq!(expected_track1, result.track1.data);
+            assert_eq!(expected_track2, result.track2.data);
+            assert_eq!(expected_track3, result.track3.data);
             Ok(())
         }
     }

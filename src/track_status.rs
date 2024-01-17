@@ -5,6 +5,7 @@ pub enum TrackStatus {
     CommandFormatError,
     InvalidCommand,
     InvalidCardSwipeOnWrite,
+    ParsedFromInput,
     Unknown,
 }
 

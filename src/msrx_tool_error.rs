@@ -22,7 +22,7 @@ pub enum MsrxToolError {
     #[error("unsupported output format")]
     UnsupportedOutputFormat,
     #[error("unsupported input format")]
-    UnsupportedInputputFormat,
+    UnsupportedInputFormat,
     #[error("format is not supported yet when reading tracks")]
     UnsupportedDataFormatForReading,
     #[error("Couldn't convert track data to string")]

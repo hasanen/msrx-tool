@@ -15,11 +15,10 @@ use clap::Parser;
 use msrx::MsrxDevice;
 mod data_format;
 use data_format::DataFormat;
-mod input;
 mod iso_data;
 mod original_device_data;
-use input::InputFormat;
 mod output;
+mod processing_format;
 use output::OutputFormat;
 
 /// Simple tool for reading and writing data to magstripe devices
@@ -81,11 +80,11 @@ fn main() {
             );
         }
         Some(CliCommand::Write) => {
-            let data =
-                input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
+            // let data =
+            //     input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
 
-            let tracks_data: TracksData = data.try_into().unwrap();
-            dbg!(tracks_data);
+            // let tracks_data: TracksData = data.try_into().unwrap();
+            // dbg!(tracks_data);
         }
 
         Some(CliCommand::Firmware) => {
