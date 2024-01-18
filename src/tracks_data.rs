@@ -212,7 +212,6 @@ mod tests {
 
     mod raw_track_data_read {
         use super::*;
-        use crate::to_hex::ToHex;
 
         #[test]
         fn test_multiple_raw_datas_to_raw_tracks_data() -> Result<(), MsrxToolError> {
@@ -251,12 +250,9 @@ mod tests {
         fn test_parse_text_one_track() -> Result<(), MsrxToolError> {
             let separator = '_';
 
-            let data_to_parse = vec![
-                "%ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMN?",
-                ";0987654321098765432109876543210987654?",
-                ";12345?",
-            ]
-            .join(&separator.to_string());
+            let data_to_parse =
+                "%ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMN?"
+                    .to_string();
 
             dbg!(&data_to_parse);
 
@@ -286,7 +282,6 @@ mod tests {
             let data_to_parse = vec![
                 "%ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMN?",
                 ";0987654321098765432109876543210987654?",
-                ";12345?",
             ]
             .join(&separator.to_string());
 
@@ -343,7 +338,7 @@ mod tests {
                 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34,
                 0x33, 0x32, 0x31, 0x30, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x3f,
             ];
-            let expected_track3 = vec![0x3b, 0x31, 0x32, 0x33, 0x34, 0x35, 0x3f, 0x3f];
+            let expected_track3 = vec![0x3b, 0x31, 0x32, 0x33, 0x34, 0x35, 0x3f];
 
             assert_eq!(expected_track1, result.track1.data);
             assert_eq!(expected_track2, result.track2.data);
