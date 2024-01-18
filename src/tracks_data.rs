@@ -4,6 +4,13 @@ use crate::msrx_tool_error::MsrxToolError;
 use crate::track_data::TrackData;
 use crate::track_status::TrackStatus;
 
+// Page 15 in "MSR605 Programmer's Manual"
+const WRITE_BLOCK_START_FIELD: [u8; 2] = [0x1b, 0x73];
+const WRITE_BLOCK_END_FIELD: [u8; 2] = [0x3f, 0x1c];
+const TRACK_1_START_FIELD: [u8; 2] = [0x1b, 0x01];
+const TRACK_2_START_FIELD: [u8; 2] = [0x1b, 0x02];
+const TRACK_3_START_FIELD: [u8; 2] = [0x1b, 0x03];
+
 #[derive(Debug)]
 pub struct TracksData {
     pub track1: TrackData,
@@ -102,7 +109,44 @@ impl TracksData {
     }
 
     fn to_packets(&self) -> Result<Vec<Vec<u8>>, MsrxToolError> {
-        todo!()
+        let card_data = TRACK_1_START_FIELD
+            .to_vec()
+            .into_iter()
+            .chain(self.track1.data.clone())
+            .chain(TRACK_2_START_FIELD.to_vec())
+            .chain(self.track2.data.clone())
+            .chain(TRACK_3_START_FIELD.to_vec())
+            .chain(self.track3.data.clone())
+            .collect::<Vec<u8>>();
+
+        let data_block = WRITE_BLOCK_START_FIELD
+            .to_vec()
+            .into_iter()
+            .chain(card_data.clone())
+            .chain(WRITE_BLOCK_END_FIELD.to_vec())
+            .collect::<Vec<u8>>();
+
+        let packet_datas: Vec<Vec<u8>> =
+            data_block.chunks(63).map(|chunk| chunk.to_vec()).collect();
+
+        let mut packets = vec![];
+
+        for packet_data in packet_datas {
+            let header_bit = 0x80;
+            let mut packet_length = 0x3f;
+
+            if packet_data.len() < 63 {
+                packet_length = packet_data.len() as u8;
+            }
+            let first_packet = header_bit | packet_length;
+            packets.push(
+                std::iter::once(first_packet)
+                    .chain(packet_data.iter().cloned())
+                    .collect::<Vec<u8>>(),
+            );
+        }
+
+        Ok(packets)
     }
 }
 
@@ -352,6 +396,7 @@ mod tests {
 
     mod to_packets {
         use super::*;
+
         #[test]
         #[ignore]
         fn test_to_packets_one_track() -> Result<(), MsrxToolError> {
@@ -365,7 +410,34 @@ mod tests {
         }
 
         #[test]
-        fn test_to_packets_three_tracks() -> Result<(), MsrxToolError> {
+        fn test_to_packets_three_tracks_one_packet() -> Result<(), MsrxToolError> {
+            let tracks_data = TracksData {
+                track1: TrackData {
+                    data: vec![0x41, 0x42, 0x43, 0x31, 0x32, 0x33],
+                    format: DataFormat::Iso,
+                },
+                track2: TrackData {
+                    data: vec![0x31, 0x32, 0x33, 0x34, 0x35],
+                    format: DataFormat::Iso,
+                },
+                track3: TrackData {
+                    data: vec![0x31, 0x32, 0x33, 0x34, 0x35],
+                    format: DataFormat::Iso,
+                },
+                status: TrackStatus::ParsedFromInput,
+            };
+
+            let packets = tracks_data.to_packets()?;
+
+            let expected_packet = *b"\x9a\x1b\x73\x1b\x01\x41\x42\x43\x31\x32\x33\x1b\x02\x31\x32\x33\x34\x35\x1b\x03\x31\x32\x33\x34\x35\x3f\x1c";
+
+            assert_eq!(&expected_packet.to_vec(), packets.get(0).unwrap());
+            Ok(())
+        }
+
+        #[test]
+        #[ignore]
+        fn test_to_packets_three_tracks_multiple_packets() -> Result<(), MsrxToolError> {
             let tracks_data = TracksData {
                 track1: TrackData {
                     data: vec![
