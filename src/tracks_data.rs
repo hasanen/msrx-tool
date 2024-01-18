@@ -100,6 +100,10 @@ impl TracksData {
             status: TrackStatus::ParsedFromInput,
         })
     }
+
+    fn to_packets(&self) -> Result<Vec<Vec<u8>>, MsrxToolError> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +346,65 @@ mod tests {
             assert_eq!(expected_track1, result.track1.data);
             assert_eq!(expected_track2, result.track2.data);
             assert_eq!(expected_track3, result.track3.data);
+            Ok(())
+        }
+    }
+
+    mod to_packets {
+        use super::*;
+        #[test]
+        #[ignore]
+        fn test_to_packets_one_track() -> Result<(), MsrxToolError> {
+            todo!();
+        }
+
+        #[test]
+        #[ignore]
+        fn test_to_packets_two_tracks() -> Result<(), MsrxToolError> {
+            todo!();
+        }
+
+        #[test]
+        fn test_to_packets_three_tracks() -> Result<(), MsrxToolError> {
+            let tracks_data = TracksData {
+                track1: TrackData {
+                    data: vec![
+                        0x25, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b,
+                        0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x31, 0x32,
+                        0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x41, 0x42, 0x43, 0x44,
+                        0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+                        0x51, 0x52, 0x53, 0x54, 0x55, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                        0x38, 0x39, 0x30, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49,
+                        0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x3f,
+                    ],
+                    format: DataFormat::Iso,
+                },
+                track2: TrackData {
+                    data: vec![
+                        0x3b, 0x30, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30,
+                        0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x39, 0x38,
+                        0x37, 0x36, 0x35, 0x34, 0x33, 0x32, 0x31, 0x30, 0x39, 0x38, 0x37, 0x36,
+                        0x35, 0x34, 0x3f,
+                    ],
+                    format: DataFormat::Iso,
+                },
+                track3: TrackData {
+                    data: vec![0x3b, 0x31, 0x32, 0x33, 0x34, 0x35, 0x3f],
+                    format: DataFormat::Iso,
+                },
+                status: TrackStatus::ParsedFromInput,
+            };
+
+            let packets = tracks_data.to_packets()?;
+
+            let expected_packet1 = *b"\xbf\x1b\x73\x1b\x01\x25\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36";
+            let expected_packet2 = *b"\x3f\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x3f\x1b\x02\x3b\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x3f\x1b\x03\x3b";
+            let expected_packet3 = *b"\x4a\x31\x32\x33\x34\x35\x3f\x3f\x1c";
+
+            assert_eq!(&expected_packet1.to_vec(), packets.get(0).unwrap());
+            assert_eq!(&expected_packet2.to_vec(), packets.get(1).unwrap());
+            assert_eq!(&expected_packet3.to_vec(), packets.get(2).unwrap());
+
             Ok(())
         }
     }
