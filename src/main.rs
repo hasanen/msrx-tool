@@ -82,13 +82,8 @@ fn main() {
         }
         Some(CliCommand::Write { track_data }) => {
             let separator = &args.format_separator.unwrap();
-            let data = TracksData::from_str(track_data, &separator);
-            dbg!(data);
-            // let data =
-            //     input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
-
-            // let tracks_data: TracksData = data.try_into().unwrap();
-            // dbg!(tracks_data);
+            let data = TracksData::from_str(track_data, &separator).unwrap();
+            msrx_device.write_tracks(&data).ok();
         }
 
         Some(CliCommand::Firmware) => {

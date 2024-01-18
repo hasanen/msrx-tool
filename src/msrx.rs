@@ -313,6 +313,69 @@ impl MsrxDevice {
         Ok(firmware)
     }
 
+    pub fn write_tracks(&mut self, data: &TracksData) -> Result<bool, MsrxToolError> {
+        dbg!("moi");
+
+        with_payload should probably return vector of packets? or some other method? would make sense that the command nows what to return
+        let packet_chunks = &Command::SetISOReadModeOn.with_payload(&self.config.to_data_block()),
+
+
+        let packets = self.to_packets(data, &Command)?;
+        for packet in packets {
+            dbg!(&packet);
+            self.device_handle
+                .send_device_control(self.config.control_endpoint, &packet)?;
+            let raw_device_data = self
+                .device_handle
+                .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
+
+            dbg!(raw_device_data);
+        }
+
+        Ok(true)
+    }
+
+    pub fn to_packets(&self, data: &TracksData) -> Result<Vec<Vec<u8>>, MsrxToolError> {
+        let card_data = TRACK_1_START_FIELD
+            .to_vec()
+            .into_iter()
+            .chain(self.track1.data.clone())
+            .chain(TRACK_2_START_FIELD.to_vec())
+            .chain(self.track2.data.clone())
+            .chain(TRACK_3_START_FIELD.to_vec())
+            .chain(self.track3.data.clone())
+            .collect::<Vec<u8>>();
+
+        let data_block = WRITE_BLOCK_START_FIELD
+            .to_vec()
+            .into_iter()
+            .chain(card_data.clone())
+            .chain(WRITE_BLOCK_END_FIELD.to_vec())
+            .collect::<Vec<u8>>();
+
+        let packet_datas: Vec<Vec<u8>> =
+            data_block.chunks(63).map(|chunk| chunk.to_vec()).collect();
+
+        let mut packets = vec![];
+
+        for packet_data in packet_datas {
+            let header_bit = 0x80;
+            let mut packet_length = 0x3f;
+
+            if packet_data.len() < 63 {
+                packet_length = packet_data.len() as u8;
+            }
+            let first_packet = header_bit | packet_length;
+            packets.push(
+                std::iter::once(first_packet)
+                    .chain(packet_data.iter().cloned())
+                    .collect::<Vec<u8>>(),
+            );
+        }
+
+        Ok(packets)
+    }
+
     fn read_interrupts(&mut self) -> Result<Vec<OriginalDeviceData>, MsrxToolError> {
         let mut raw_datas = vec![];
 

@@ -108,7 +108,8 @@ impl TracksData {
         })
     }
 
-    fn to_packets(&self) -> Result<Vec<Vec<u8>>, MsrxToolError> {
+    /// Converts the data to a data block as it's defined in the manual
+    pub fn to_data_block(&self) -> Result<Vec<u8>, MsrxToolError> {
         let card_data = TRACK_1_START_FIELD
             .to_vec()
             .into_iter()
@@ -126,27 +127,7 @@ impl TracksData {
             .chain(WRITE_BLOCK_END_FIELD.to_vec())
             .collect::<Vec<u8>>();
 
-        let packet_datas: Vec<Vec<u8>> =
-            data_block.chunks(63).map(|chunk| chunk.to_vec()).collect();
-
-        let mut packets = vec![];
-
-        for packet_data in packet_datas {
-            let header_bit = 0x80;
-            let mut packet_length = 0x3f;
-
-            if packet_data.len() < 63 {
-                packet_length = packet_data.len() as u8;
-            }
-            let first_packet = header_bit | packet_length;
-            packets.push(
-                std::iter::once(first_packet)
-                    .chain(packet_data.iter().cloned())
-                    .collect::<Vec<u8>>(),
-            );
-        }
-
-        Ok(packets)
+        Ok(data_block)
     }
 }
 
@@ -410,7 +391,7 @@ mod tests {
         }
 
         #[test]
-        fn test_to_packets_three_tracks_one_packet() -> Result<(), MsrxToolError> {
+        fn test_to_data_block_three_tracks_one_packet() -> Result<(), MsrxToolError> {
             let tracks_data = TracksData {
                 track1: TrackData {
                     data: vec![0x41, 0x42, 0x43, 0x31, 0x32, 0x33],
@@ -437,7 +418,7 @@ mod tests {
 
         #[test]
         #[ignore]
-        fn test_to_packets_three_tracks_multiple_packets() -> Result<(), MsrxToolError> {
+        fn test_to_ata_block_three_tracks_multiple_packets() -> Result<(), MsrxToolError> {
             let tracks_data = TracksData {
                 track1: TrackData {
                     data: vec![
@@ -467,15 +448,14 @@ mod tests {
                 status: TrackStatus::ParsedFromInput,
             };
 
-            let packets = tracks_data.to_packets()?;
+            let packets = tracks_data.to_data_block()?;
 
-            let expected_packet1 = *b"\xbf\x1b\x73\x1b\x01\x25\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36";
-            let expected_packet2 = *b"\x3f\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x3f\x1b\x02\x3b\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x3f\x1b\x03\x3b";
-            let expected_packet3 = *b"\x4a\x31\x32\x33\x34\x35\x3f\x3f\x1c";
+            let expected_packet = *b"\
+            \xbf\x1b\x73\x1b\x01\x25\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\
+            \x3f\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x3f\x1b\x02\x3b\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x3f\x1b\x03\x3b\
+            \x4a\x31\x32\x33\x34\x35\x3f\x3f\x1c";
 
-            assert_eq!(&expected_packet1.to_vec(), packets.get(0).unwrap());
-            assert_eq!(&expected_packet2.to_vec(), packets.get(1).unwrap());
-            assert_eq!(&expected_packet3.to_vec(), packets.get(2).unwrap());
+            assert_eq!(&expected_packet.to_vec(), &packets);
 
             Ok(())
         }
