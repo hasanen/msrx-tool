@@ -46,7 +46,7 @@ enum CliCommand {
     Read,
     #[clap(name = "write")]
     /// Write content to tracks. Use
-    Write { content: String },
+    Write { track_data: String },
     #[clap(name = "fw")]
     /// Print firmware of the device
     Firmware,
@@ -80,9 +80,9 @@ fn main() {
                 )
             );
         }
-        Some(CliCommand::Write { content }) => {
+        Some(CliCommand::Write { track_data }) => {
             let separator = &args.format_separator.unwrap();
-            let data = TracksData::from_str(content, &separator);
+            let data = TracksData::from_str(track_data, &separator);
             dbg!(data);
             // let data =
             //     input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
