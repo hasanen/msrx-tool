@@ -82,7 +82,6 @@ impl TryFrom<Vec<IsoData>> for TracksData {
 
 impl TracksData {
     pub fn from_str(text: &str, separator: &char) -> Result<Self, MsrxToolError> {
-        let string = String::new();
         let splits: Vec<&str> = text.split(*separator).collect();
 
         Ok(TracksData {

@@ -20,6 +20,7 @@ mod original_device_data;
 mod output;
 mod processing_format;
 use output::OutputFormat;
+use tracks_data::TracksData;
 
 /// Simple tool for reading and writing data to magstripe devices
 #[derive(Parser, Debug)]
@@ -45,7 +46,7 @@ enum CliCommand {
     Read,
     #[clap(name = "write")]
     /// Write content to tracks. Use
-    Write,
+    Write { content: String },
     #[clap(name = "fw")]
     /// Print firmware of the device
     Firmware,
@@ -79,7 +80,10 @@ fn main() {
                 )
             );
         }
-        Some(CliCommand::Write) => {
+        Some(CliCommand::Write { content }) => {
+            let separator = &args.format_separator.unwrap();
+            let data = TracksData::from_str(content, &separator);
+            dbg!(data);
             // let data =
             //     input::parse(&result, &InputFormat::Combined, &args.format_separator).unwrap();
 
