@@ -33,7 +33,7 @@ impl OriginalDeviceData {
         self.data[1] == 0x1b && self.data[2] == 0x31
     }
 
-    pub fn successful_read(&self) -> bool {
+    pub fn successful_operation(&self) -> bool {
         // First byte is the length of the data
         // so skipping it
         self.data[1] == 0x1b && self.data[2] == 0x30

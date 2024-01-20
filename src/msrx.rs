@@ -8,7 +8,7 @@ use crate::original_device_data::OriginalDeviceData;
 use crate::to_hex::ToHex;
 use crate::tracks_data::TracksData;
 use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
-use std::time::Duration;
+use std::{os::macos::raw, time::Duration};
 
 pub trait MSRX {
     fn reset(&mut self, endpoint: u8) -> Result<bool, MsrxToolError>;
@@ -36,13 +36,7 @@ impl MSRX for DeviceHandle<Context> {
         let result = self.read_success(endpoint)?;
         Ok(result)
     }
-    // fn read_tracks(&mut self, endpoint: u8) -> String {
-    //     let raw_data = self.read_device_interrupt(endpoint, 1).unwrap();
-    //     let raw_track_data: TracksData = raw_data.try_into().unwrap();
-    //     dbg!(raw_track_data);
-    //     //
-    //     return "".to_string();
-    // }
+
     fn read_device_interrupt(
         &mut self,
         endpoint: u8,
@@ -96,7 +90,6 @@ impl MSRX for DeviceHandle<Context> {
 
             written += packet_length;
 
-            dbg!(&chunk.to_hex());
             self.send_control_chunk(endpoint, &chunk)?;
         }
         Ok(())
@@ -117,7 +110,7 @@ impl MSRX for DeviceHandle<Context> {
     fn read_success(&mut self, endpoint: u8) -> Result<bool, MsrxToolError> {
         let raw_device_data = self.read_device_raw_interrupt(endpoint, 1)?;
 
-        Ok(raw_device_data.successful_read())
+        Ok(raw_device_data.successful_operation())
     }
 }
 
@@ -324,52 +317,8 @@ impl MsrxDevice {
             .device_handle
             .read_device_raw_interrupt(self.config.interrupt_endpoint, 10)?;
 
-        dbg!(raw_device_data);
-        dbg!(raw_device_data.data.to_hex());
-
-        Ok(true)
+        Ok(raw_device_data.successful_operation())
     }
-
-    // pub fn to_packets(&self, data: &TracksData) -> Result<Vec<Vec<u8>>, MsrxToolError> {
-    //     let card_data = TRACK_1_START_FIELD
-    //         .to_vec()
-    //         .into_iter()
-    //         .chain(self.track1.data.clone())
-    //         .chain(TRACK_2_START_FIELD.to_vec())
-    //         .chain(self.track2.data.clone())
-    //         .chain(TRACK_3_START_FIELD.to_vec())
-    //         .chain(self.track3.data.clone())
-    //         .collect::<Vec<u8>>();
-
-    //     let data_block = WRITE_BLOCK_START_FIELD
-    //         .to_vec()
-    //         .into_iter()
-    //         .chain(card_data.clone())
-    //         .chain(WRITE_BLOCK_END_FIELD.to_vec())
-    //         .collect::<Vec<u8>>();
-
-    //     let packet_datas: Vec<Vec<u8>> =
-    //         data_block.chunks(63).map(|chunk| chunk.to_vec()).collect();
-
-    //     let mut packets = vec![];
-
-    //     for packet_data in packet_datas {
-    //         let header_bit = 0x80;
-    //         let mut packet_length = 0x3f;
-
-    //         if packet_data.len() < 63 {
-    //             packet_length = packet_data.len() as u8;
-    //         }
-    //         let first_packet = header_bit | packet_length;
-    //         packets.push(
-    //             std::iter::once(first_packet)
-    //                 .chain(packet_data.iter().cloned())
-    //                 .collect::<Vec<u8>>(),
-    //         );
-    //     }
-
-    //     Ok(packets)
-    // }
 
     fn read_interrupts(&mut self) -> Result<Vec<OriginalDeviceData>, MsrxToolError> {
         let mut raw_datas = vec![];

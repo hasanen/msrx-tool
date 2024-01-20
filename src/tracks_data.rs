@@ -282,8 +282,6 @@ mod tests {
                 "%ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMNOPQRSTU1234567890ABCDEFGHIJKLMN?"
                     .to_string();
 
-            dbg!(&data_to_parse);
-
             let result = TracksData::from_str(&data_to_parse, &separator)?;
 
             let expected_track1 = vec![
@@ -312,8 +310,6 @@ mod tests {
                 ";0987654321098765432109876543210987654?",
             ]
             .join(&separator.to_string());
-
-            dbg!(&data_to_parse);
 
             let result = TracksData::from_str(&data_to_parse, &separator)?;
 
@@ -348,8 +344,6 @@ mod tests {
                 ";12345?",
             ]
             .join(&separator.to_string());
-
-            dbg!(&data_to_parse);
 
             let result = TracksData::from_str(&data_to_parse, &separator)?;
 

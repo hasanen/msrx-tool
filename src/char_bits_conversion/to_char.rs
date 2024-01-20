@@ -15,8 +15,6 @@ pub trait ToChar {
 impl<T: AsRef<str>> ToChar for T {
     type Error = MsrxToolError;
     fn from_track_1_bits(&self, bits_per_character: u8) -> Result<char, MsrxToolError> {
-        dbg!("--------------------");
-        dbg!(&self.as_ref());
         let mut as_num = if bits_per_character > 6 {
             let start_index = (self.as_ref().len() - 6) as usize;
             usize::from_str_radix(&self.as_ref().reverse()[start_index..], 2).unwrap()
