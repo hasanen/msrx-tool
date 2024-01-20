@@ -27,6 +27,8 @@ pub enum MsrxToolError {
     UnsupportedDataFormatForReading,
     #[error("Couldn't convert track data to string")]
     InvalidUtf8DataInTrack,
+    #[error("Card was not swiped")]
+    CardNotSwiped,
     #[error("unknown conversion error")]
     Unknown,
 }

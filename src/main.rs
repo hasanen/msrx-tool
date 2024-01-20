@@ -19,7 +19,9 @@ mod iso_data;
 mod original_device_data;
 mod output;
 mod processing_format;
+use msrx_tool_error::MsrxToolError::DeviceError;
 use output::OutputFormat;
+use std::time::Duration;
 use tracks_data::TracksData;
 
 /// Simple tool for reading and writing data to magstripe devices
@@ -38,6 +40,9 @@ struct Args {
     #[clap(long, default_value = "_")]
     /// Input/output format separator when using combined output format
     format_separator: Option<char>,
+    #[clap(long, default_value = "10")]
+    /// Timeout in seconds for reading tracks
+    read_timeout: Option<u64>,
 }
 #[derive(Parser, Debug)]
 enum CliCommand {
@@ -70,15 +75,29 @@ fn main() {
 
     match &args.command {
         Some(CliCommand::Read) => {
-            let result = msrx_device.read_tracks(&args.data_format.unwrap()).unwrap();
-            println!(
-                "{}",
-                output::format(
-                    &result,
-                    &args.output_format.unwrap(),
-                    &args.format_separator,
-                )
-            );
+            let timeout = Duration::from_secs(args.read_timeout.unwrap());
+
+            match msrx_device.read_tracks(&args.data_format.unwrap(), &timeout) {
+                Ok(result) => {
+                    println!(
+                        "{}",
+                        output::format(
+                            &result,
+                            &args.output_format.unwrap(),
+                            &args.format_separator,
+                        )
+                    );
+                }
+                Err(e) => match e {
+                    DeviceError(rusb::Error::Timeout) => {
+                        msrx_device.disable_read_mode();
+                    }
+                    _ => {
+                        println!("Error2: {}", e);
+                        process::exit(1);
+                    }
+                },
+            }
         }
         Some(CliCommand::Write { track_data }) => {
             let separator = &args.format_separator.unwrap();
@@ -99,7 +118,7 @@ fn main() {
     }
 
     match msrx_device.device_handle.reset() {
-        Ok(_) => {}
+        Ok(_) => (),
         Err(e) => {
             println!("Error: {}", e);
             process::exit(1);
