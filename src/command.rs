@@ -28,7 +28,7 @@ impl Command {
             Command::SetLoCo => vec![0x1b, 0x79],
             Command::SetLeadingZeros => vec![0x1b, 0x7a],
             Command::SetReadModeOnFormatISO => vec![0x1b, 0x72],
-            Command::SetISOReadModeOn => vec![0x1b, 0x72],
+            Command::SetISOReadModeOn => vec![0x1b, 0x77],
             Command::SetReadModeOff => vec![0x1b, 0x61],
             Command::TurnLedAllOn => vec![0x1b, 0x82],
             Command::TurnLedRedOn => vec![0x1b, 0x85],

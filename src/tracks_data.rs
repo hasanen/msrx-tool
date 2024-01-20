@@ -408,11 +408,11 @@ mod tests {
                 status: TrackStatus::ParsedFromInput,
             };
 
-            let packets = tracks_data.to_packets()?;
+            let packets = tracks_data.to_data_block()?;
 
-            let expected_packet = *b"\x9a\x1b\x73\x1b\x01\x41\x42\x43\x31\x32\x33\x1b\x02\x31\x32\x33\x34\x35\x1b\x03\x31\x32\x33\x34\x35\x3f\x1c";
+            let expected_packets = *b"\x1b\x73\x1b\x01\x41\x42\x43\x31\x32\x33\x1b\x02\x31\x32\x33\x34\x35\x1b\x03\x31\x32\x33\x34\x35\x3f\x1c";
 
-            assert_eq!(&expected_packet.to_vec(), packets.get(0).unwrap());
+            assert_eq!(&expected_packets.to_vec(), &packets);
             Ok(())
         }
 
