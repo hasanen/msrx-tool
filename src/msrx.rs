@@ -111,6 +111,7 @@ impl MSRX for DeviceHandle<Context> {
 
             written += packet_length;
 
+            dbg!(chunk.to_hex());
             self.send_control_chunk(endpoint, &chunk, &timeout)?;
         }
         Ok(())
@@ -170,11 +171,16 @@ impl MsrxDevice {
 
         // Device setup
         self.device_handle.reset()?;
+        self.init_device()?;
+
+        Ok(())
+    }
+
+    fn init_device(&mut self) -> Result<(), MsrxToolError> {
         self.set_bit_control_parity()?;
         self.set_hico_loco_mode()?;
         self.set_bit_per_inches()?;
         self.set_leading_zeros()?;
-
         Ok(())
     }
 
@@ -222,7 +228,7 @@ impl MsrxDevice {
         let result = self
             .device_handle
             .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
-
+        dbg!(result.data.to_hex());
         if result.data[1] == 0x1b
             && result.data[2] == 0x30
             && result.data[3] == self.config.track1.bpc
@@ -312,17 +318,18 @@ impl MsrxDevice {
             .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
         Ok(raw_device_data.to_string())
     }
-
-    pub fn disable_read_mode(&mut self) -> Result<bool, MsrxToolError> {
+    pub fn reset(&mut self) -> Result<bool, MsrxToolError> {
         self.device_handle.run_command(
             self.config.control_endpoint,
-            &Command::SetReadModeOff,
+            &Command::Reset,
             &Duration::from_secs(1),
-        )?;
-        let raw_device_data = self
-            .device_handle
-            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
-        Ok(raw_device_data.successful_operation())
+        )
+        // let raw_device_data = self
+        //     .device_handle
+        //     .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
+        // dbg!(raw_device_data);
+
+        // Ok(true)
     }
 
     pub fn read_tracks(
@@ -334,13 +341,12 @@ impl MsrxDevice {
             DataFormat::Iso => Command::SetReadModeOnFormatISO,
             DataFormat::Raw => return Err(MsrxToolError::UnsupportedDataFormatForReading),
         };
-        dbg!("eka");
+
         self.device_handle.send_device_control(
             self.config.control_endpoint,
             &read_command.packets(),
             timeout,
         )?;
-        dbg!("toka");
 
         match self.read_interrupts(timeout) {
             Ok(raw_datas) => {
@@ -357,7 +363,10 @@ impl MsrxDevice {
             }
             Err(e) => match e {
                 MsrxToolError::DeviceError(rusb::Error::Timeout) => {
-                    self.disable_read_mode();
+                    dbg!("reset device to end read mode");
+                    self.reset();
+                    self.init_device()?;
+
                     Err(MsrxToolError::CardNotSwiped)
                 }
                 _ => Err(MsrxToolError::Unknown),

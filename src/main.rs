@@ -40,7 +40,7 @@ struct Args {
     #[clap(long, default_value = "_")]
     /// Input/output format separator when using combined output format
     format_separator: Option<char>,
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "20")]
     /// Timeout in seconds for reading tracks
     read_timeout: Option<u64>,
 }
@@ -90,11 +90,11 @@ fn main() {
                 }
                 Err(e) => match e {
                     DeviceError(rusb::Error::Timeout) => {
-                        msrx_device.disable_read_mode();
+                        // msrx_device.disable_read_mode();
                     }
                     _ => {
+                        dbg!(&e);
                         println!("Error2: {}", e);
-                        process::exit(1);
                     }
                 },
             }
@@ -115,13 +115,5 @@ fn main() {
             println!("{}", model);
         }
         None => todo!(),
-    }
-
-    match msrx_device.device_handle.reset() {
-        Ok(_) => (),
-        Err(e) => {
-            println!("Error: {}", e);
-            process::exit(1);
-        }
     }
 }
