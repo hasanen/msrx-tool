@@ -9,7 +9,7 @@ Some preliminary todo list
 - [x] needs to write data
 - [ ] input validation for the tracks (length and supported characters per track)
 - [ ] Allow only 1 or 2 tracks to be written
-- [ ] handle timeout when card not swiped (read & write)
+- [x] handle timeout when card not swiped (read & write)
 - formatter
   - default:
     - read: use same format as basic readers, e.g. `` %QWERTYUIOPASDFGHJKLZXCVBNM_`01234567890123456789\_ ``
