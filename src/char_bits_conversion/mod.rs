@@ -5,10 +5,6 @@ pub mod from_char;
 pub mod to_char;
 use crate::msrx_tool_error::MsrxToolError;
 
-const TRACK1_SUPPORTED_ASCII: &str =
-    " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
-const TRACK2_3_SUPPORTED_ASCII: &str = "0123456789:;<=>?";
-
 fn parity(bits: &str) -> Result<String, MsrxToolError> {
     if bits.matches('1').count() % 2 != 0 {
         Ok("0".to_string())

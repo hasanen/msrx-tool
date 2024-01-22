@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum MsrxToolError {
     #[error("device error")]
     DeviceError(#[from] rusb::Error),

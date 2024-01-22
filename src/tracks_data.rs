@@ -11,6 +11,14 @@ const TRACK_1_START_FIELD: [u8; 2] = [0x1b, 0x01];
 const TRACK_2_START_FIELD: [u8; 2] = [0x1b, 0x02];
 const TRACK_3_START_FIELD: [u8; 2] = [0x1b, 0x03];
 
+const TRACK1_SUPPORTED_ASCII: &str =
+    " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
+const TRACK2_3_SUPPORTED_ASCII: &str = "0123456789:;<=>?";
+
+const TRACK1_MAX_LENGTH: usize = 79;
+const TRACK2_MAX_LENGTH: usize = 40;
+const TRACK3_MAX_LENGTH: usize = 107;
+
 #[derive(Debug)]
 pub struct TracksData {
     pub track1: TrackData,
@@ -91,7 +99,11 @@ impl TracksData {
     pub fn from_str(text: &str, separator: &char) -> Result<Self, MsrxToolError> {
         let splits: Vec<&str> = text.split(*separator).collect();
 
-        Ok(TracksData {
+        validate_track(splits[0], TRACK1_MAX_LENGTH, TRACK1_SUPPORTED_ASCII)?;
+        validate_track(splits[1], TRACK2_MAX_LENGTH, TRACK2_3_SUPPORTED_ASCII)?;
+        validate_track(splits[2], TRACK3_MAX_LENGTH, TRACK2_3_SUPPORTED_ASCII)?;
+
+        let tracks_data = TracksData {
             track1: TrackData {
                 data: splits[0].as_bytes().to_vec(),
                 format: DataFormat::Iso,
@@ -105,7 +117,9 @@ impl TracksData {
                 format: DataFormat::Iso,
             },
             status: TrackStatus::ParsedFromInput,
-        })
+        };
+
+        Ok(tracks_data)
     }
 
     /// Converts the data to a data block as it's defined in the manual
@@ -129,6 +143,14 @@ impl TracksData {
 
         Ok(data_block)
     }
+}
+
+fn validate_track(
+    data: &str,
+    track_max_length: usize,
+    track_supported_ascii: &str,
+) -> Result<bool, MsrxToolError> {
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -369,17 +391,17 @@ mod tests {
         }
 
         #[test]
-        fn test_from_str_validate_track1_characters_valid_chars() {
+        fn test_from_str_validate_track1_characters_valid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track1_characters_invalid_chars() {
+        fn test_from_str_validate_track1_characters_invalid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track1_length() {
+        fn test_from_str_validate_track1_length() -> Result<(), MsrxToolError> {
             let data_to_parse = "A".repeat(80);
 
             let result: Result<TracksData, MsrxToolError> =
@@ -387,39 +409,41 @@ mod tests {
 
             match result {
                 Ok(_) => panic!("Expected an Err, got Ok"),
-                Err(e) => assert_eq!(e, MsrxToolError::DataForTrackIsTooLong(1, 80, 79)),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::DataForTrackIsTooLong(1, 80, 79));
+
+                    Ok(())
+                }
             }
-
-            Ok(())
         }
 
         #[test]
-        fn test_from_str_validate_track2_characters_valid_chars() {
+        fn test_from_str_validate_track2_characters_valid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track2_characters_invalid_chars() {
+        fn test_from_str_validate_track2_characters_invalid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track2_length() {
+        fn test_from_str_validate_track2_length() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track3_characters_valid_chars() {
+        fn test_from_str_validate_track3_characters_valid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track3_characters_invalid_chars() {
+        fn test_from_str_validate_track3_characters_invalid_chars() -> Result<(), MsrxToolError> {
             todo!()
         }
 
         #[test]
-        fn test_from_str_validate_track3_length() {
+        fn test_from_str_validate_track3_length() -> Result<(), MsrxToolError> {
             todo!()
         }
     }
