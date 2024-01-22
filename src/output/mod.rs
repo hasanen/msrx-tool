@@ -28,7 +28,7 @@ pub fn format(tracks_data: &TracksData, format: &OutputFormat, separator: &Optio
     }
 }
 
-fn format_json(tracks_data: &TracksData) -> String {
+fn format_json(_tracks_data: &TracksData) -> String {
     todo!("Implement JSON output")
 }
 

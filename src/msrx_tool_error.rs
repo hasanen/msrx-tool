@@ -1,4 +1,3 @@
-use crate::track_data::TrackType;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -15,14 +14,10 @@ pub enum MsrxToolError {
     BitConversionError,
     #[error("device not found")]
     DeviceNotFound,
-    #[error("invalid bits  per character for track")]
-    InvalidBitsPerCharacter,
     #[error("unsupported data format")]
     UnsupportedDataFormat,
     #[error("unsupported output format")]
     UnsupportedOutputFormat,
-    #[error("unsupported input format")]
-    UnsupportedInputFormat,
     #[error("format is not supported yet when reading tracks")]
     UnsupportedDataFormatForReading,
     #[error("Couldn't convert track data to string")]

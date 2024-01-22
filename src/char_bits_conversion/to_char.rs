@@ -34,7 +34,7 @@ impl<T: AsRef<str>> ToChar for T {
             None => Err(MsrxToolError::BitConversionError),
         }
     }
-    fn from_track_2_3_bits(&self, bits_per_character: u8) -> Result<char, MsrxToolError> {
+    fn from_track_2_3_bits(&self, _bits_per_character: u8) -> Result<char, MsrxToolError> {
         let mut as_num = usize::from_str_radix(&self.as_ref().reverse(), 2).unwrap();
         let mask = usize::from_str_radix("00110000", 2).unwrap();
         as_num |= mask;
