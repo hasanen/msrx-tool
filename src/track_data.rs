@@ -7,6 +7,13 @@ pub struct TrackData {
     pub format: DataFormat,
 }
 impl TrackData {
+    pub fn as_packets(&self) -> Vec<u8> {
+        if self.data.is_empty() {
+            return vec![0x00];
+        } else {
+            return self.data.clone();
+        }
+    }
     pub fn to_string(&self) -> Result<String, MsrxToolError> {
         match self.format {
             DataFormat::Iso => self.to_string_iso(),

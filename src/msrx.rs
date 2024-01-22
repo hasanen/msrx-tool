@@ -111,7 +111,6 @@ impl MSRX for DeviceHandle<Context> {
 
             written += packet_length;
 
-            dbg!(chunk.to_hex());
             self.send_control_chunk(endpoint, &chunk, &timeout)?;
         }
         Ok(())
@@ -228,7 +227,6 @@ impl MsrxDevice {
         let result = self
             .device_handle
             .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
-        dbg!(result.data.to_hex());
         if result.data[1] == 0x1b
             && result.data[2] == 0x30
             && result.data[3] == self.config.track1.bpc
@@ -378,10 +376,12 @@ impl MsrxDevice {
         data: &TracksData,
         timeout: &Duration,
     ) -> Result<bool, MsrxToolError> {
+        dbg!(&data.to_data_block()?.to_hex());
         let payload = &Command::SetISOReadModeOn.with_payload(&data.to_data_block()?);
 
         dbg!("moi");
         dbg!(timeout);
+        dbg!(&payload.to_hex());
         self.device_handle
             .send_device_control(self.config.control_endpoint, &payload, &timeout)?;
         match self
