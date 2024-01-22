@@ -18,13 +18,21 @@ use data_format::DataFormat;
 mod iso_data;
 mod original_device_data;
 mod output;
-mod processing_format;
-use msrx_tool_error::MsrxToolError::DeviceError;
+use msrx_tool_error::MsrxToolError;
+use msrx_tool_error::MsrxToolError::CardNotSwiped;
 use output::OutputFormat;
 use std::time::Duration;
 use tracks_data::TracksData;
 
 /// Simple tool for reading and writing data to magstripe devices
+///
+/// ## Errors
+///
+/// If there is an error during exection, the program will exit with a non-zero exit code. Error message will be printed to STDERR.
+///
+/// Codes:
+/// 1 - Generic error
+/// 2 - Card not swiped/Timeout. Card was not swiped when expected
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None,arg_required_else_help = true)]
 struct Args {
@@ -59,6 +67,17 @@ enum CliCommand {
     /// Print model of the device
     Model,
 }
+#[derive(Copy, Clone, Debug)]
+enum ExitCode {
+    Success = 0,
+    CardNotSwiped = 2,
+    GenericError = 1,
+}
+impl ExitCode {
+    fn as_i32(&self) -> i32 {
+        *self as i32
+    }
+}
 
 fn main() {
     let args = Args::parse();
@@ -88,21 +107,16 @@ fn main() {
                         )
                     );
                 }
-                Err(e) => match e {
-                    DeviceError(rusb::Error::Timeout) => {
-                        // msrx_device.disable_read_mode();
-                    }
-                    _ => {
-                        dbg!(&e);
-                        println!("Error2: {}", e);
-                    }
-                },
+                Err(e) => handle_error(&e),
             }
         }
         Some(CliCommand::Write { track_data }) => {
             let separator = &args.format_separator.unwrap();
             let data = TracksData::from_str(track_data, &separator).unwrap();
-            msrx_device.write_tracks(&data).ok();
+            match msrx_device.write_tracks(&data) {
+                Ok(_) => println!("Write operation successful"),
+                Err(e) => handle_error(&e),
+            }
         }
 
         Some(CliCommand::Firmware) => {
@@ -116,4 +130,16 @@ fn main() {
         }
         None => todo!(),
     }
+
+    process::exit(ExitCode::Success.as_i32());
+}
+
+fn handle_error(error: &MsrxToolError) {
+    let exit_code = match error {
+        CardNotSwiped => ExitCode::CardNotSwiped,
+        _ => ExitCode::GenericError,
+    };
+
+    eprintln!("Error: {}", &error);
+    process::exit(exit_code.as_i32());
 }

@@ -364,7 +364,7 @@ impl MsrxDevice {
             Err(e) => match e {
                 MsrxToolError::DeviceError(rusb::Error::Timeout) => {
                     dbg!("reset device to end read mode");
-                    self.reset();
+                    let _ = self.reset();
                     self.init_device()?;
 
                     Err(MsrxToolError::CardNotSwiped)
