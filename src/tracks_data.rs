@@ -373,15 +373,86 @@ mod tests {
         use super::*;
 
         #[test]
-        #[ignore]
         fn test_to_packets_one_track() -> Result<(), MsrxToolError> {
-            todo!();
+            let tracks_data = TracksData {
+                track1: TrackData {
+                    data: vec![0x41, 0x42, 0x43, 0x31, 0x32, 0x33],
+                    format: DataFormat::Iso,
+                },
+                track2: TrackData {
+                    data: vec![],
+                    format: DataFormat::Iso,
+                },
+                track3: TrackData {
+                    data: vec![],
+                    format: DataFormat::Iso,
+                },
+                status: TrackStatus::ParsedFromInput,
+            };
+
+            let packets = tracks_data.to_data_block()?;
+
+            let expected_packets =
+                *b"\x1b\x73\x1b\x01\x41\x42\x43\x31\x32\x33\x1b\x02\x1b\x03\x3f\x1c";
+
+            assert_eq!(&expected_packets.to_vec(), &packets);
+
+            Ok(())
         }
 
         #[test]
-        #[ignore]
+        fn test_to_packets_one_track_middle_track() -> Result<(), MsrxToolError> {
+            let tracks_data = TracksData {
+                track1: TrackData {
+                    data: vec![],
+                    format: DataFormat::Iso,
+                },
+                track2: TrackData {
+                    data: vec![0x41, 0x42, 0x43, 0x31, 0x32, 0x33],
+                    format: DataFormat::Iso,
+                },
+                track3: TrackData {
+                    data: vec![],
+                    format: DataFormat::Iso,
+                },
+                status: TrackStatus::ParsedFromInput,
+            };
+
+            let packets = tracks_data.to_data_block()?;
+
+            let expected_packets =
+                *b"\x1b\x73\x1b\x01\x1b\x02\x41\x42\x43\x31\x32\x33\x1b\x03\x3f\x1c";
+
+            assert_eq!(&expected_packets.to_vec(), &packets);
+
+            Ok(())
+        }
+
+        #[test]
         fn test_to_packets_two_tracks() -> Result<(), MsrxToolError> {
-            todo!();
+            let tracks_data = TracksData {
+                track1: TrackData {
+                    data: vec![0x41, 0x42, 0x43, 0x31, 0x32, 0x33],
+                    format: DataFormat::Iso,
+                },
+                track2: TrackData {
+                    data: vec![0x31, 0x32, 0x33, 0x34, 0x35],
+                    format: DataFormat::Iso,
+                },
+                track3: TrackData {
+                    data: vec![],
+                    format: DataFormat::Iso,
+                },
+                status: TrackStatus::ParsedFromInput,
+            };
+
+            let packets = tracks_data.to_data_block()?;
+
+            let expected_packets = *b"\x1b\x73\x1b\x01\x41\x42\x43\x31\x32\x33\x1b\x02\x31\x32\x33\x34\x35\x1b\x03\x3f\x1c";
+
+            assert_eq!(&expected_packets.to_vec(), &packets);
+
+            Ok(())
         }
 
         #[test]
@@ -411,8 +482,7 @@ mod tests {
         }
 
         #[test]
-        #[ignore]
-        fn test_to_ata_block_three_tracks_multiple_packets() -> Result<(), MsrxToolError> {
+        fn test_to_data_block_three_tracks_multiple_packets() -> Result<(), MsrxToolError> {
             let tracks_data = TracksData {
                 track1: TrackData {
                     data: vec![
@@ -445,9 +515,9 @@ mod tests {
             let packets = tracks_data.to_data_block()?;
 
             let expected_packet = *b"\
-            \xbf\x1b\x73\x1b\x01\x25\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\
-            \x3f\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x3f\x1b\x02\x3b\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x3f\x1b\x03\x3b\
-            \x4a\x31\x32\x33\x34\x35\x3f\x3f\x1c";
+            \x1b\x73\x1b\x01\x25\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x31\x32\x33\x34\x35\x36\
+            \x37\x38\x39\x30\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4a\x4b\x4c\x4d\x4e\x3f\x1b\x02\x3b\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x33\x32\x31\x30\x39\x38\x37\x36\x35\x34\x3f\x1b\x03\x3b\
+            \x31\x32\x33\x34\x35\x3f\x3f\x1c";
 
             assert_eq!(&expected_packet.to_vec(), &packets);
 
