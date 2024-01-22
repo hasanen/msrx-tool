@@ -51,6 +51,9 @@ struct Args {
     #[clap(long, default_value = "20")]
     /// Timeout in seconds for reading tracks
     read_timeout: Option<u64>,
+    #[clap(long, default_value = "20")]
+    /// Timeout in seconds for writing tracks
+    write_timeout: Option<u64>,
 }
 #[derive(Parser, Debug)]
 enum CliCommand {
@@ -95,7 +98,6 @@ fn main() {
     match &args.command {
         Some(CliCommand::Read) => {
             let timeout = Duration::from_secs(args.read_timeout.unwrap());
-
             match msrx_device.read_tracks(&args.data_format.unwrap(), &timeout) {
                 Ok(result) => {
                     println!(
@@ -111,9 +113,10 @@ fn main() {
             }
         }
         Some(CliCommand::Write { track_data }) => {
+            let timeout = Duration::from_secs(args.write_timeout.unwrap());
             let separator = &args.format_separator.unwrap();
             let data = TracksData::from_str(track_data, &separator).unwrap();
-            match msrx_device.write_tracks(&data) {
+            match msrx_device.write_tracks(&data, &timeout) {
                 Ok(_) => println!("Write operation successful"),
                 Err(e) => handle_error(&e),
             }
@@ -140,6 +143,7 @@ fn handle_error(error: &MsrxToolError) {
         _ => ExitCode::GenericError,
     };
 
+    dbg!(&error);
     eprintln!("Error: {}", &error);
     process::exit(exit_code.as_i32());
 }

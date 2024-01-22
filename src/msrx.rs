@@ -7,7 +7,7 @@ use crate::msrx_tool_error::MsrxToolError;
 use crate::original_device_data::OriginalDeviceData;
 use crate::to_hex::ToHex;
 use crate::tracks_data::TracksData;
-use rusb::{Context, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
+use rusb::{Context, DeviceHandle, UsbContext};
 use std::time::Duration;
 
 pub trait MSRX {
@@ -363,7 +363,6 @@ impl MsrxDevice {
             }
             Err(e) => match e {
                 MsrxToolError::DeviceError(rusb::Error::Timeout) => {
-                    dbg!("reset device to end read mode");
                     let _ = self.reset();
                     self.init_device()?;
 
@@ -374,32 +373,36 @@ impl MsrxDevice {
         }
     }
 
-    pub fn get_firmware_version(&mut self) -> Result<String, MsrxToolError> {
-        self.device_handle.run_command(
-            self.config.control_endpoint,
-            &Command::GetFirmwareVersion,
-            &Duration::from_secs(1),
-        )?;
-        let raw_device_data = self
-            .device_handle
-            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
-        let firmware = raw_device_data.to_string();
-        Ok(firmware)
-    }
-
-    pub fn write_tracks(&mut self, data: &TracksData) -> Result<bool, MsrxToolError> {
+    pub fn write_tracks(
+        &mut self,
+        data: &TracksData,
+        timeout: &Duration,
+    ) -> Result<bool, MsrxToolError> {
         let payload = &Command::SetISOReadModeOn.with_payload(&data.to_data_block()?);
 
-        self.device_handle.send_device_control(
-            self.config.control_endpoint,
-            &payload,
-            &Duration::from_secs(1),
-        )?;
-        let raw_device_data = self
+        dbg!("moi");
+        dbg!(timeout);
+        self.device_handle
+            .send_device_control(self.config.control_endpoint, &payload, &timeout)?;
+        match self
             .device_handle
-            .read_device_raw_interrupt(self.config.interrupt_endpoint, 10)?;
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, timeout.as_secs())
+        {
+            Ok(raw_device_data) => {
+                dbg!("ok");
+                Ok(raw_device_data.successful_operation())
+            }
+            Err(e) => match e {
+                MsrxToolError::DeviceError(rusb::Error::Timeout) => {
+                    dbg!("err");
+                    let _ = self.reset();
+                    self.init_device()?;
 
-        Ok(raw_device_data.successful_operation())
+                    Err(MsrxToolError::CardNotSwiped)
+                }
+                _ => Err(MsrxToolError::Unknown),
+            },
+        }
     }
 
     fn read_interrupts(
@@ -424,5 +427,18 @@ impl MsrxDevice {
         }
 
         Ok(raw_datas)
+    }
+
+    pub fn get_firmware_version(&mut self) -> Result<String, MsrxToolError> {
+        self.device_handle.run_command(
+            self.config.control_endpoint,
+            &Command::GetFirmwareVersion,
+            &Duration::from_secs(1),
+        )?;
+        let raw_device_data = self
+            .device_handle
+            .read_device_raw_interrupt(self.config.interrupt_endpoint, 1)?;
+        let firmware = raw_device_data.to_string();
+        Ok(firmware)
     }
 }
