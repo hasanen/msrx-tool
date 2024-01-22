@@ -100,7 +100,6 @@ fn main() {
             let timeout = Duration::from_secs(args.read_timeout.unwrap());
             match msrx_device.read_tracks(&args.data_format.unwrap(), &timeout) {
                 Ok(result) => {
-                    dbg!(&result);
                     println!(
                         "{}",
                         output::format(

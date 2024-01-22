@@ -389,7 +389,7 @@ impl MsrxDevice {
             .read_device_raw_interrupt(self.config.interrupt_endpoint, timeout.as_secs())
         {
             Ok(raw_device_data) => {
-                dbg!("ok");
+                dbg!(raw_device_data.data.to_hex());
                 Ok(raw_device_data.successful_operation())
             }
             Err(e) => match e {

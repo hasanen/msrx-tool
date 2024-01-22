@@ -380,7 +380,17 @@ mod tests {
 
         #[test]
         fn test_from_str_validate_track1_length() {
-            todo!()
+            let data_to_parse = "A".repeat(80);
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => assert_eq!(e, MsrxToolError::DataForTrackIsTooLong(1, 80, 79)),
+            }
+
+            Ok(())
         }
 
         #[test]

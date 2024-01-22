@@ -9,7 +9,7 @@ pub struct TrackData {
 impl TrackData {
     pub fn as_packets(&self) -> Vec<u8> {
         if self.data.is_empty() {
-            return vec![0x00];
+            return vec![0x00, 0x00];
         } else {
             return self.data.clone();
         }
