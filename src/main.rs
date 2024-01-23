@@ -18,6 +18,7 @@ use data_format::DataFormat;
 mod iso_data;
 mod original_device_data;
 mod output;
+use clap::CommandFactory;
 use msrx_tool_error::MsrxToolError;
 use msrx_tool_error::MsrxToolError::CardNotSwiped;
 use output::OutputFormat;
@@ -31,10 +32,21 @@ use tracks_data::TracksData;
 /// If there is an error during exection, the program will exit with a non-zero exit code. Error message will be printed to STDERR.
 ///
 /// Codes:
-/// 1 - Generic error
-/// 2 - Card not swiped/Timeout. Card was not swiped when expected
+///  1 - Generic error  
+///  2 - Card not swiped/Timeout. Card was not swiped when expected
+///
+/// ## Allowed charaacters
+///   Track 1: !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\^_
+///   Track 2 & 3: 0123456789:;<=>?
+
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None,arg_required_else_help = true)]
+#[command(
+    author,
+    version,
+    about,
+    arg_required_else_help = true,
+    verbatim_doc_comment
+)]
 struct Args {
     /// Command to use: read
     #[clap(subcommand)]
@@ -84,6 +96,9 @@ impl ExitCode {
 
 fn main() {
     let args = Args::parse();
+    CliCommand::command()
+        .after_help("Some more text")
+        .get_matches();
 
     let mut msrx_device = match MsrxDevice::init_msrx6() {
         Ok(device) => device,

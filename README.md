@@ -7,8 +7,8 @@ Some preliminary todo list
 - [x] Detect if device is connected. Show error message
 - [x] needs to read the data
 - [x] needs to write data
-- [ ] input validation for the tracks (length and supported characters per track)
-- [ ] Allow only 1 or 2 tracks to be written
+- [x] input validation for the tracks (length and supported characters per track)
+- [ ] ~~Allow only 1 or 2 tracks to be written~~ Seems that this can't be done with ISO writing
 - [x] handle timeout when card not swiped (read & write)
 - formatter
   - default:
