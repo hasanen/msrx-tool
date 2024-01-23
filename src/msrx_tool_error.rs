@@ -28,6 +28,10 @@ pub enum MsrxToolError {
     DataForTrackIsTooLong(usize, usize, usize),
     #[error("Invalid data for track {0}. Allowed chars: {1}")]
     InvalidTrackData(usize, String),
+    #[error("Invalid start sentinel for track {0}, expected {1}")]
+    InvalidStartSentinel(usize, char),
+    #[error("Invalid end sentinel for track {0}, expected {1}")]
+    InvalidEndSentinel(usize, char),
     #[error("unknown conversion error")]
     Unknown,
 }

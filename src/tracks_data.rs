@@ -11,6 +11,9 @@ const WRITE_BLOCK_END_FIELD: [u8; 2] = [0x3f, 0x1c];
 const TRACK_1_START_FIELD: [u8; 2] = [0x1b, 0x01];
 const TRACK_2_START_FIELD: [u8; 2] = [0x1b, 0x02];
 const TRACK_3_START_FIELD: [u8; 2] = [0x1b, 0x03];
+const TRACK_1_START_SENTINEL: char = '%';
+const TRACK2_3_START_SENTINEL: char = ';';
+const TRACK_END_SENTINEL: char = '?';
 
 const TRACK1_MAX_LENGTH: usize = 79;
 const TRACK2_MAX_LENGTH: usize = 40;
@@ -100,19 +103,31 @@ impl TracksData {
     pub fn from_str(text: &str, separator: &char) -> Result<Self, MsrxToolError> {
         let splits: Vec<&str> = text.split(*separator).collect();
 
-        let track1_data =
-            Self::validate_track(1, splits.get(0), TRACK1_MAX_LENGTH, TRACK1_SUPPORTED_ASCII)?;
+        //Validation should be done in TrackData and not here, but due
+        // to time constraint, no time to refactor or do it properly
+        let track1_data = Self::validate_track(
+            1,
+            splits.get(0),
+            TRACK1_MAX_LENGTH,
+            TRACK1_SUPPORTED_ASCII,
+            TRACK_1_START_SENTINEL,
+            TRACK_END_SENTINEL,
+        )?;
         let track2_data = Self::validate_track(
             2,
             splits.get(1),
             TRACK2_MAX_LENGTH,
             TRACK2_3_SUPPORTED_ASCII,
+            TRACK2_3_START_SENTINEL,
+            TRACK_END_SENTINEL,
         )?;
         let track3_data = Self::validate_track(
             3,
             splits.get(2),
             TRACK3_MAX_LENGTH,
             TRACK2_3_SUPPORTED_ASCII,
+            TRACK2_3_START_SENTINEL,
+            TRACK_END_SENTINEL,
         )?;
 
         let tracks_data = TracksData {
@@ -161,6 +176,8 @@ impl TracksData {
         data: Option<&&str>,
         track_max_length: usize,
         track_supported_ascii: &str,
+        start_sentinel: char,
+        end_sentinel: char,
     ) -> Result<Vec<u8>, MsrxToolError> {
         let data_vec = match data {
             Some(data) => data.as_bytes().to_vec(),
@@ -173,14 +190,28 @@ impl TracksData {
                 data_vec.len(),
                 track_max_length,
             ))
-        } else if !data_vec
-            .iter()
-            .all(|&c| track_supported_ascii.contains(c as char))
-        {
-            Err(MsrxToolError::InvalidTrackData(
-                track_number,
-                track_supported_ascii.to_string(),
-            ))
+        } else if data_vec != vec![0x00] {
+            if !data_vec
+                .iter()
+                .all(|&c| track_supported_ascii.contains(c as char))
+            {
+                Err(MsrxToolError::InvalidTrackData(
+                    track_number,
+                    track_supported_ascii.to_string(),
+                ))
+            } else if data_vec[0] != start_sentinel as u8 {
+                return Err(MsrxToolError::InvalidStartSentinel(
+                    track_number,
+                    start_sentinel,
+                ));
+            } else if data_vec[data_vec.len() - 1] != end_sentinel as u8 {
+                return Err(MsrxToolError::InvalidEndSentinel(
+                    track_number,
+                    end_sentinel,
+                ));
+            } else {
+                Ok(data_vec)
+            }
         } else {
             Ok(data_vec)
         }
@@ -440,6 +471,42 @@ mod tests {
         }
 
         #[test]
+        fn test_from_str_validate_track1_characters_invalid_start_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "A?_;1?_;1?".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidStartSentinel(1, '%'));
+
+                    Ok(())
+                }
+            }
+        }
+
+        #[test]
+        fn test_from_str_validate_track1_characters_invalid_end_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "%A_;1?_;1?".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidEndSentinel(1, '?'));
+
+                    Ok(())
+                }
+            }
+        }
+
+        #[test]
         fn test_from_str_validate_track1_characters_invalid_chars() -> Result<(), MsrxToolError> {
             let data_to_parse = format!("%{}?_;1?_;1?", "{".repeat(30));
 
@@ -495,6 +562,42 @@ mod tests {
         }
 
         #[test]
+        fn test_from_str_validate_track2_characters_invalid_start_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "%A?_1?_;1?".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidStartSentinel(2, ';'));
+
+                    Ok(())
+                }
+            }
+        }
+
+        #[test]
+        fn test_from_str_validate_track2_characters_invalid_end_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "%A?_;1_;1?".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidEndSentinel(2, '?'));
+
+                    Ok(())
+                }
+            }
+        }
+
+        #[test]
         fn test_from_str_validate_track2_characters_invalid_chars() -> Result<(), MsrxToolError> {
             let data_to_parse = format!("%A?_;{}?_;1?", "-".repeat(30));
 
@@ -545,6 +648,41 @@ mod tests {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     panic!("Expected an Ok, got Err")
+                }
+            }
+        }
+        #[test]
+        fn test_from_str_validate_track3_characters_invalid_start_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "%A?_;1?_1?".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidStartSentinel(3, ';'));
+
+                    Ok(())
+                }
+            }
+        }
+
+        #[test]
+        fn test_from_str_validate_track3_characters_invalid_end_sentinel(
+        ) -> Result<(), MsrxToolError> {
+            let data_to_parse = "%A?_;1?_;1".to_string();
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::InvalidEndSentinel(3, '?'));
+
+                    Ok(())
                 }
             }
         }
