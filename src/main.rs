@@ -115,9 +115,11 @@ fn main() {
         Some(CliCommand::Write { track_data }) => {
             let timeout = Duration::from_secs(args.write_timeout.unwrap());
             let separator = &args.format_separator.unwrap();
-            let data = TracksData::from_str(track_data, &separator).unwrap();
-            match msrx_device.write_tracks(&data, &timeout) {
-                Ok(_) => println!("Write operation successful"),
+            match TracksData::from_str(track_data, &separator) {
+                Ok(data) => match msrx_device.write_tracks(&data, &timeout) {
+                    Ok(_) => println!("Write operation successful"),
+                    Err(e) => handle_error(&e),
+                },
                 Err(e) => handle_error(&e),
             }
         }
@@ -143,7 +145,6 @@ fn handle_error(error: &MsrxToolError) {
         _ => ExitCode::GenericError,
     };
 
-    dbg!(&error);
     eprintln!("Error: {}", &error);
     process::exit(exit_code.as_i32());
 }

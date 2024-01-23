@@ -11,7 +11,7 @@ impl TrackData {
         if self.data.is_empty() {
             return vec![0x00];
         } else {
-            return self.data.clone();
+            return self.data[1..self.data.len() - 1].to_vec();
         }
     }
     pub fn to_string(&self) -> Result<String, MsrxToolError> {
