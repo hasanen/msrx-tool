@@ -3,6 +3,7 @@ use crate::iso_data::IsoData;
 use crate::msrx_tool_error::MsrxToolError;
 use crate::track_data::TrackData;
 use crate::track_status::TrackStatus;
+use crate::tracks_data;
 
 // Page 15 in "MSR605 Programmer's Manual"
 const WRITE_BLOCK_START_FIELD: [u8; 2] = [0x1b, 0x73];
@@ -11,13 +12,13 @@ const TRACK_1_START_FIELD: [u8; 2] = [0x1b, 0x01];
 const TRACK_2_START_FIELD: [u8; 2] = [0x1b, 0x02];
 const TRACK_3_START_FIELD: [u8; 2] = [0x1b, 0x03];
 
-const TRACK1_SUPPORTED_ASCII: &str =
-    " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
-const TRACK2_3_SUPPORTED_ASCII: &str = "0123456789:;<=>?";
-
 const TRACK1_MAX_LENGTH: usize = 79;
 const TRACK2_MAX_LENGTH: usize = 40;
 const TRACK3_MAX_LENGTH: usize = 107;
+
+pub const TRACK1_SUPPORTED_ASCII: &str =
+    " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_";
+pub const TRACK2_3_SUPPORTED_ASCII: &str = "0123456789:;<=>?";
 
 #[derive(Debug)]
 pub struct TracksData {
@@ -99,21 +100,32 @@ impl TracksData {
     pub fn from_str(text: &str, separator: &char) -> Result<Self, MsrxToolError> {
         let splits: Vec<&str> = text.split(*separator).collect();
 
-        validate_track(splits[0], TRACK1_MAX_LENGTH, TRACK1_SUPPORTED_ASCII)?;
-        validate_track(splits[1], TRACK2_MAX_LENGTH, TRACK2_3_SUPPORTED_ASCII)?;
-        validate_track(splits[2], TRACK3_MAX_LENGTH, TRACK2_3_SUPPORTED_ASCII)?;
+        let track1_data =
+            Self::validate_track(1, splits.get(0), TRACK1_MAX_LENGTH, TRACK1_SUPPORTED_ASCII)?;
+        let track2_data = Self::validate_track(
+            2,
+            splits.get(1),
+            TRACK2_MAX_LENGTH,
+            TRACK2_3_SUPPORTED_ASCII,
+        )?;
+        let track3_data = Self::validate_track(
+            3,
+            splits.get(2),
+            TRACK3_MAX_LENGTH,
+            TRACK2_3_SUPPORTED_ASCII,
+        )?;
 
         let tracks_data = TracksData {
             track1: TrackData {
-                data: splits[0].as_bytes().to_vec(),
+                data: track1_data,
                 format: DataFormat::Iso,
             },
             track2: TrackData {
-                data: splits.get(1).unwrap_or(&"").as_bytes().to_vec(),
+                data: track2_data,
                 format: DataFormat::Iso,
             },
             track3: TrackData {
-                data: splits.get(2).unwrap_or(&"").as_bytes().to_vec(),
+                data: track3_data,
                 format: DataFormat::Iso,
             },
             status: TrackStatus::ParsedFromInput,
@@ -143,14 +155,36 @@ impl TracksData {
 
         Ok(data_block)
     }
-}
 
-fn validate_track(
-    data: &str,
-    track_max_length: usize,
-    track_supported_ascii: &str,
-) -> Result<bool, MsrxToolError> {
-    Ok(true)
+    fn validate_track(
+        track_number: usize,
+        data: Option<&&str>,
+        track_max_length: usize,
+        track_supported_ascii: &str,
+    ) -> Result<Vec<u8>, MsrxToolError> {
+        let data_vec = match data {
+            Some(data) => data.as_bytes().to_vec(),
+            None => vec![0x00],
+        };
+
+        if data_vec.len() > track_max_length {
+            Err(MsrxToolError::DataForTrackIsTooLong(
+                track_number,
+                data_vec.len(),
+                track_max_length,
+            ))
+        } else if !data_vec
+            .iter()
+            .all(|&c| track_supported_ascii.contains(c as char))
+        {
+            Err(MsrxToolError::InvalidTrackData(
+                track_number,
+                track_supported_ascii.to_string(),
+            ))
+        } else {
+            Ok(data_vec)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -392,12 +426,40 @@ mod tests {
 
         #[test]
         fn test_from_str_validate_track1_characters_valid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%{}?_;1?_;1?", "1".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    panic!("Expected an Ok, got Err")
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track1_characters_invalid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%{}?_;1?_;1?", "{".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(
+                        e,
+                        MsrxToolError::InvalidTrackData(
+                            1,
+                            tracks_data::TRACK1_SUPPORTED_ASCII.to_string()
+                        )
+                    );
+
+                    Ok(())
+                }
+            }
         }
 
         #[test]
@@ -419,32 +481,112 @@ mod tests {
 
         #[test]
         fn test_from_str_validate_track2_characters_valid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;{}?_;1?", "1".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    panic!("Expected an Ok, got Err")
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track2_characters_invalid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;{}?_;1?", "-".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(
+                        e,
+                        MsrxToolError::InvalidTrackData(
+                            2,
+                            tracks_data::TRACK2_3_SUPPORTED_ASCII.to_string()
+                        )
+                    );
+
+                    Ok(())
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track2_length() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;{}?_;1?", "1".repeat(39));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::DataForTrackIsTooLong(2, 41, 40));
+
+                    Ok(())
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track3_characters_valid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;1?_;{}?", "1".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    panic!("Expected an Ok, got Err")
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track3_characters_invalid_chars() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;1?_;{}?", "-".repeat(30));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(
+                        e,
+                        MsrxToolError::InvalidTrackData(
+                            3,
+                            tracks_data::TRACK2_3_SUPPORTED_ASCII.to_string()
+                        )
+                    );
+
+                    Ok(())
+                }
+            }
         }
 
         #[test]
         fn test_from_str_validate_track3_length() -> Result<(), MsrxToolError> {
-            todo!()
+            let data_to_parse = format!("%A?_;1?_;{}?", "1".repeat(106));
+
+            let result: Result<TracksData, MsrxToolError> =
+                TracksData::from_str(&data_to_parse, &'_');
+
+            match result {
+                Ok(_) => panic!("Expected an Err, got Ok"),
+                Err(e) => {
+                    assert_eq!(e, MsrxToolError::DataForTrackIsTooLong(3, 108, 107));
+
+                    Ok(())
+                }
+            }
         }
     }
 

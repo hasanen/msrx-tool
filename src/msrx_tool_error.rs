@@ -26,6 +26,8 @@ pub enum MsrxToolError {
     CardNotSwiped,
     #[error("Data for track {0} is too long: {1}. Max length is {2}")]
     DataForTrackIsTooLong(usize, usize, usize),
+    #[error("Invalid data for track {0}. Allowed chars: {1}")]
+    InvalidTrackData(usize, String),
     #[error("unknown conversion error")]
     Unknown,
 }
