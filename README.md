@@ -2,22 +2,7 @@ Command line tool for using MSRX6 device from command line.
 
 ## TODO
 
-Some preliminary todo list
-
-- [x] Detect if device is connected. Show error message
-- [x] needs to read the data
-- [x] needs to write data
-- [x] input validation for the tracks (length and supported characters per track)
-- [ ] ~~Allow only 1 or 2 tracks to be written~~ Seems that this can't be done with ISO writing
-- [x] handle timeout when card not swiped (read & write)
-- formatter
-  - default:
-    - read: use same format as basic readers, e.g. `` %QWERTYUIOPASDFGHJKLZXCVBNM_`01234567890123456789\_ ``
-- [w] needs to work in RPI
-  - [x] local build works when cloning the repo
-  - [ ] at least make command that builds the bin
-  - [ ] CI/CD pipeline setup?
-- [ ] [OPTIONAL] Combine input and output formats to on "Format" enum and implement `to` and `from` functions
+- [ ] Rewwrite
 
 ## Compile for RPI
 
