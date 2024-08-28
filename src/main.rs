@@ -108,7 +108,12 @@ fn main() {
         }
     };
 
-    msrx_device.setup_device().unwrap();
+    match msrx_device.setup_device() {
+        Ok(_) => {}
+        Err(e) => {
+            handle_error(&e);
+        }
+    }
 
     match &args.command {
         Some(CliCommand::Read) => {
