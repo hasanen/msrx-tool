@@ -2,7 +2,7 @@ Command line tool for using MSRX6 device from command line.
 
 ## TODO
 
-- [ ] Rewwrite
+- [ ] Rewrite
 
 ## Compile for RPI
 
